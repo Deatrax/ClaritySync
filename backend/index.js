@@ -11,6 +11,66 @@ app.use(express.json());
 
 // Routes
 
+// 0. Health Check
+app.get('/api/health', async (req, res) => {
+    res.json({ status: 'ok', message: 'Backend is running' });
+});
+
+// 0.5 Setup Database Tables
+app.post('/api/setup/init-tables', async (req, res) => {
+    try {
+        console.log('Starting database initialization...');
+
+        // Test connection
+        const testResult = await supabase.from('category').select('*').limit(1);
+        if (!testResult.error) {
+            return res.json({ message: 'Database already initialized or tables exist' });
+        }
+
+        // Try to create tables using RPC or direct SQL
+        // Since we can't run raw SQL via JS client, we'll try creating tables one by one
+        const tables = [
+            {
+                name: 'category',
+                check: async () => await supabase.from('category').select('*').limit(1)
+            },
+            {
+                name: 'product',
+                check: async () => await supabase.from('product').select('*').limit(1)
+            },
+            {
+                name: 'category_attribute',
+                check: async () => await supabase.from('category_attribute').select('*').limit(1)
+            },
+            {
+                name: 'product_attribute_value',
+                check: async () => await supabase.from('product_attribute_value').select('*').limit(1)
+            }
+        ];
+
+        let missingTables = [];
+        for (const table of tables) {
+            const result = await table.check();
+            if (result.error) {
+                missingTables.push(table.name);
+            }
+        }
+
+        if (missingTables.length > 0) {
+            return res.status(400).json({
+                error: 'Missing tables',
+                missing: missingTables,
+                hint: 'Please run the schema SQL in Supabase SQL Editor'
+            });
+        }
+
+        res.json({ message: 'All tables initialized successfully' });
+    } catch (err) {
+        console.error('Setup error:', err);
+        res.status(500).json({ error: 'Setup error', details: err.message });
+    }
+});
+
 // 0. Dashboard Stats
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
@@ -20,12 +80,12 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
         if (err1 || err2 || err3) throw new Error("Supabase Query Error");
 
-        const totalBalance = accounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
+        const totalBalance = accounts?.reduce((sum, acc) => sum + (parseFloat(acc.current_balance || 0)), 0) || 0;
 
         res.json({
             totalProducts: productCount || 0,
             totalCustomers: customerCount || 0,
-            totalBalance: totalBalance
+            totalBalance: Math.round(totalBalance * 100) / 100
         });
     } catch (err) {
         console.error(err);
@@ -33,10 +93,17 @@ app.get('/api/dashboard/stats', async (req, res) => {
     }
 });
 
-// 1. Products
-app.get('/api/products', async (req, res) => {
+// 1. Categories (Dynamic Attributes Support)
+app.get('/api/categories', async (req, res) => {
     try {
-        const { data, error } = await supabase.from('product').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabase
+            .from('category')
+            .select(`
+                *,
+                category_attribute (*)
+            `)
+            .order('category_name');
+
         if (error) throw error;
         res.json(data);
     } catch (err) {
@@ -45,18 +112,283 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-app.post('/api/products', async (req, res) => {
-    const { name, category, price } = req.body;
-    try {
-        const { data, error } = await supabase.from('product').insert([
-            { name, category, price }
-        ]).select();
+app.post('/api/categories', async (req, res) => {
+    const { category_name, description, attributes } = req.body;
+    // attributes = [{ attribute_name, data_type, is_required }]
 
-        if (error) throw error;
-        res.status(201).json(data[0]);
+    try {
+        // 1. Create Category
+        const { data: catData, error: catError } = await supabase
+            .from('category')
+            .insert([{ category_name, description }])
+            .select()
+            .single();
+
+        if (catError) throw catError;
+
+        // 2. Create Attributes Definition
+        if (attributes && attributes.length > 0) {
+            const attrInserts = attributes.map(attr => ({
+                category_id: catData.category_id,
+                attribute_name: attr.attribute_name,
+                data_type: attr.data_type || 'VARCHAR',
+                is_required: attr.is_required || false
+            }));
+
+            const { error: attrError } = await supabase
+                .from('category_attribute')
+                .insert(attrInserts);
+
+            if (attrError) throw attrError;
+        }
+
+        res.status(201).json(catData);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Seed default categories (helper endpoint)
+app.post('/api/categories/seed/defaults', async (req, res) => {
+    try {
+        console.log('Attempting to seed default categories...');
+
+        const defaultCategories = [
+            { category_name: 'Laptop', description: 'Laptops and notebook computers' },
+            { category_name: 'Mobile', description: 'Mobile phones and smartphones' },
+            { category_name: 'Grocery', description: 'Groceries and food items' },
+            { category_name: 'Clothing', description: 'Apparel, fashion, and clothing items' },
+            { category_name: 'Electronics', description: 'Electronic devices and gadgets' },
+            { category_name: 'Home & Kitchen', description: 'Home and kitchen items' },
+            { category_name: 'Books & Media', description: 'Books, DVDs, and media' },
+            { category_name: 'Furniture', description: 'Furniture and fixtures' },
+            { category_name: 'Accessories', description: 'Accessories and add-ons' }
+        ];
+
+        // Check if categories already exist
+        const { data: existingCategories, error: checkError } = await supabase.from('category')
+            .select('category_id, category_name')
+            .in('category_name', defaultCategories.map(c => c.category_name));
+
+        if (checkError) {
+            console.error('Error checking existing categories:', checkError);
+            throw checkError;
+        }
+
+        console.log('Existing categories:', existingCategories?.length || 0);
+
+        // Filter out categories that already exist
+        const categoriesToInsert = defaultCategories.filter(newCat =>
+            !existingCategories?.some(existing => existing.category_name === newCat.category_name)
+        );
+
+        if (categoriesToInsert.length === 0) {
+            console.log('All categories already exist');
+            return res.status(200).json({
+                message: 'All categories already exist',
+                count: 0,
+                data: []
+            });
+        }
+
+        console.log(`Inserting ${categoriesToInsert.length} new categories...`);
+
+        const { data, error } = await supabase.from('category')
+            .insert(categoriesToInsert)
+            .select();
+
+        if (error) {
+            console.error('Error inserting categories:', error);
+            throw error;
+        }
+
+        console.log(`Successfully seeded ${data?.length || 0} categories`);
+        res.status(201).json({
+            message: 'Categories seeded successfully',
+            count: data?.length || 0,
+            data: data || [],
+            skipped: defaultCategories.length - (data?.length || 0)
+        });
+    } catch (err) {
+        console.error('Fatal error in seed categories:', err);
+        res.status(500).json({
+            error: 'Failed to seed categories',
+            details: err.message || String(err),
+            code: err.code
+        });
+    }
+});
+
+// 2. Products (Dynamic Attributes Support)
+app.get('/api/products', async (req, res) => {
+    try {
+        const { data: products, error } = await supabase
+            .from('product')
+            .select(`
+                *,
+                category (category_name),
+                product_attribute_value (
+                    attribute_id,
+                    attribute_value,
+                    category_attribute (attribute_name, data_type)
+                )
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json(products);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/products', async (req, res) => {
+    const { product_name, category_id, brand, selling_price_estimate, has_serial_number, attributes } = req.body;
+
+    try {
+        // 1. Create Product
+        const { data: productData, error: productError } = await supabase.from('product').insert([
+            {
+                product_name,
+                category_id,
+                brand,
+                selling_price_estimate,
+                has_serial_number: has_serial_number || false
+            }
+        ]).select().single();
+
+        if (productError) throw productError;
+
+        const productId = productData.product_id;
+
+        // 2. Insert Attribute Values (if any)
+        if (attributes && attributes.length > 0) {
+            const attrInserts = attributes.map(attr => ({
+                product_id: productId,
+                attribute_id: attr.attribute_id,
+                attribute_value: attr.value
+            }));
+
+            const { error: attrError } = await supabase
+                .from('product_attribute_value')
+                .insert(attrInserts);
+
+            if (attrError) throw attrError;
+        }
+
+        res.status(201).json(productData);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+
+
+
+// DELETE Product
+app.delete('/api/products/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Delete related product attribute values first (cascade)
+        const { error: attrError } = await supabase.from('product_attribute_value')
+            .delete()
+            .eq('product_id', id);
+
+        if (attrError) throw attrError;
+
+        // Delete product
+        const { data, error } = await supabase.from('product')
+            .delete()
+            .eq('product_id', id)
+            .select();
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        res.json({ message: 'Product deleted successfully', data: data[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+// 3. Inventory
+app.get('/api/inventory', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('inventory')
+            .select(`
+                inventory_id,
+                product_id,
+                supplier_id,
+                quantity,
+                purchase_price,
+                selling_price,
+                serial_number,
+                status,
+                product(product_name),
+                contacts(name)
+            `)
+            .eq('status', 'IN_STOCK')
+            .order('inventory_id', { ascending: false });
+
+        if (error) throw error;
+
+        // Flatten the nested data
+        const inventory = data?.map(i => ({
+            ...i,
+            product_name: i.product?.product_name || 'Unknown',
+            supplier_name: i.contacts?.name || 'Unknown Supplier'
+        })) || [];
+
+        res.json(inventory);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/inventory/add', async (req, res) => {
+    const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_number, account_id } = req.body;
+    try {
+        // Step 1: Add inventory item
+        const { data: inventoryData, error: invError } = await supabase.from('inventory').insert([
+            {
+                product_id,
+                supplier_id,
+                quantity,
+                purchase_price,
+                selling_price,
+                serial_number: serial_number || null,
+                status: 'IN_STOCK'
+            }
+        ]).select();
+
+        if (invError) throw invError;
+
+        // Step 2: Call RPC to process payment
+        const totalCost = purchase_price * quantity;
+        const { error: rpcError } = await supabase.rpc('sp_add_stock', {
+            p_product_id: product_id,
+            p_supplier_id: supplier_id,
+            p_quantity: quantity,
+            p_purchase_price: purchase_price,
+            p_selling_price: selling_price,
+            p_serial_number: serial_number || null,
+            p_account_id: parseInt(account_id)
+        });
+
+        if (rpcError) throw rpcError;
+
+        res.status(201).json(inventoryData[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
     }
 });
 
@@ -283,6 +615,29 @@ app.get('/api/contacts/:id/history', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// 6. Category Attributes
+app.get('/api/categories/:id/attributes', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('category_attribute')
+            .select('attribute_id, attribute_name, data_type, is_required')
+            .eq('category_id', id)
+            .order('attribute_id', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            return res.json([]);
+        }
+
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
     }
 });
 
