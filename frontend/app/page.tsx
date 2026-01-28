@@ -11,7 +11,8 @@ import {
   Search, 
   TrendingUp, 
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Settings
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -61,6 +62,7 @@ export default function Dashboard() {
           <NavItem href="/sales" icon={<ShoppingCart />} label="Sales" />
           <NavItem href="/contacts" icon={<Users />} label="Contacts" />
           <NavItem href="/banking" icon={<Wallet />} label="Banking" />
+          <NavItem href="/settings/categories" icon={<Settings />} label="Settings" />
         </nav>
 
         <div className="p-4 border-t border-gray-100">

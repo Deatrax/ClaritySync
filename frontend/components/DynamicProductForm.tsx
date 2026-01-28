@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { AlertCircle, Loader } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 interface CategoryAttribute {
   attribute_id: number;
@@ -17,7 +17,11 @@ interface AttributeValues {
 interface DynamicProductFormProps {
   onAttributeChange?: (values: AttributeValues) => void;
   onCategoryChange?: (categoryId: number) => void;
-  categories: Array<{ category_id: number; category_name: string }>;
+  categories: Array<{ 
+    category_id: number; 
+    category_name: string;
+    category_attribute?: CategoryAttribute[];
+  }>;
 }
 
 export default function DynamicProductForm({
@@ -28,11 +32,10 @@ export default function DynamicProductForm({
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [attributes, setAttributes] = useState<CategoryAttribute[]>([]);
   const [attributeValues, setAttributeValues] = useState<AttributeValues>({});
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch attributes when category changes
-  const handleCategoryChange = async (categoryId: string) => {
+  // Handle category change
+  const handleCategoryChange = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setAttributeValues({}); // Reset values
     setError(null);
@@ -42,23 +45,15 @@ export default function DynamicProductForm({
       return;
     }
 
-    setLoading(true);
-    try {
-      const res = await fetch(`http://localhost:5000/api/categories/${categoryId}/attributes`);
-      if (!res.ok) throw new Error('Failed to fetch attributes');
-      
-      const data = await res.json();
-      setAttributes(data || []);
+    // Find the category and get its attributes
+    const category = categories.find(c => c.category_id === parseInt(categoryId));
+    if (category && category.category_attribute) {
+      setAttributes(category.category_attribute);
       
       // Notify parent of category change
       if (onCategoryChange) {
         onCategoryChange(parseInt(categoryId));
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error fetching attributes');
-      setAttributes([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -207,15 +202,10 @@ export default function DynamicProductForm({
       )}
 
       {/* Loading State */}
-      {loading && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
-          <Loader className="w-4 h-4 text-blue-600 animate-spin" />
-          <p className="text-sm text-blue-800">Loading attributes...</p>
-        </div>
-      )}
+      {/* Removed loading state as attributes are now loaded from category object */}
 
       {/* Dynamic Attributes */}
-      {!loading && selectedCategory && attributes.length > 0 && (
+      {selectedCategory && attributes.length > 0 && (
         <div className="space-y-4 pt-2 border-t border-gray-200">
           <p className="text-sm font-medium text-gray-700">Product Attributes</p>
           {attributes.map((attribute) => (
@@ -234,7 +224,7 @@ export default function DynamicProductForm({
       )}
 
       {/* No Attributes Message */}
-      {!loading && selectedCategory && attributes.length === 0 && (
+      {selectedCategory && attributes.length === 0 && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
             No attributes defined for this category yet.
