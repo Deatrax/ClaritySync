@@ -941,6 +941,290 @@ app.get('/api/categories/:id/attributes', async (req, res) => {
     }
 });
 
+// 7. Banking Accounts Endpoints
+app.get('/api/accounts', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('banking_account')
+            .select('account_id, account_name, bank_name, branch_name, account_number, current_balance, created_at')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json(data || []);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.get('/api/accounts/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('banking_account')
+            .select('*')
+            .eq('account_id', id)
+            .single();
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.post('/api/accounts', async (req, res) => {
+    const { account_name, bank_name, branch_name, account_number, current_balance } = req.body;
+
+    if (!account_name || !bank_name) {
+        return res.status(400).json({ error: 'Account name and bank name are required' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('banking_account')
+            .insert([{
+                account_name,
+                bank_name,
+                branch_name: branch_name || null,
+                account_number: account_number || null,
+                current_balance: current_balance || 0
+            }])
+            .select();
+
+        if (error) throw error;
+        res.status(201).json(data[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.delete('/api/accounts/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { error } = await supabase
+            .from('banking_account')
+            .delete()
+            .eq('account_id', id);
+
+        if (error) throw error;
+        res.json({ message: 'Account deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+// 8. Banking Categories Endpoints
+app.get('/api/banking/categories', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('transaction_category')
+            .select('category_id, name, type, is_system_default, created_at')
+            .order('type', { ascending: true })
+            .order('name', { ascending: true });
+
+        if (error) throw error;
+        res.json(data || []);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.get('/api/banking/categories/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('transaction_category')
+            .select('*')
+            .eq('category_id', id)
+            .single();
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.post('/api/banking/categories', async (req, res) => {
+    const { name, type } = req.body;
+
+    if (!name || !type) {
+        return res.status(400).json({ error: 'Name and type are required' });
+    }
+
+    if (!['INCOME', 'EXPENSE'].includes(type)) {
+        return res.status(400).json({ error: 'Type must be INCOME or EXPENSE' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('transaction_category')
+            .insert([{
+                name,
+                type,
+                is_system_default: false
+            }])
+            .select();
+
+        if (error) throw error;
+        res.status(201).json(data[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.delete('/api/banking/categories/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Check if it's a system default category
+        const { data: category } = await supabase
+            .from('transaction_category')
+            .select('is_system_default')
+            .eq('category_id', id)
+            .single();
+
+        if (category?.is_system_default) {
+            return res.status(400).json({ error: 'Cannot delete system default categories' });
+        }
+
+        const { error } = await supabase
+            .from('transaction_category')
+            .delete()
+            .eq('category_id', id);
+
+        if (error) throw error;
+        res.json({ message: 'Category deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+// 9. Transactions Endpoints
+app.get('/api/transactions', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('transaction')
+            .select(`
+                transaction_id,
+                transaction_type,
+                amount,
+                description,
+                transaction_date,
+                category_id,
+                to_account_id,
+                from_account_id,
+                transaction_category(name),
+                to_account:banking_account!to_account_id(account_name),
+                from_account:banking_account!from_account_id(account_name)
+            `)
+            .order('transaction_date', { ascending: false });
+
+        if (error) throw error;
+
+        const transactions = (data || []).map(t => ({
+            transaction_id: t.transaction_id,
+            transaction_type: t.transaction_type,
+            amount: t.amount,
+            description: t.description,
+            transaction_date: t.transaction_date,
+            category_id: t.category_id,
+            category_name: t.transaction_category?.name || 'Uncategorized',
+            account_name: t.transaction_type === 'INCOME' 
+                ? t.to_account?.[0]?.account_name 
+                : t.from_account?.[0]?.account_name
+        }));
+
+        res.json(transactions);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.get('/api/transactions/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('transaction')
+            .select('*')
+            .eq('transaction_id', id)
+            .single();
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
+app.post('/api/transactions', async (req, res) => {
+    const { transaction_type, amount, from_account_id, to_account_id, category_id, description, transaction_date } = req.body;
+
+    if (!transaction_type || !amount || !category_id) {
+        return res.status(400).json({ error: 'Type, amount, and category are required' });
+    }
+
+    if (!['INCOME', 'EXPENSE'].includes(transaction_type)) {
+        return res.status(400).json({ error: 'Type must be INCOME or EXPENSE' });
+    }
+
+    const account_id = transaction_type === 'INCOME' ? to_account_id : from_account_id;
+    if (!account_id) {
+        return res.status(400).json({ error: 'Account ID is required' });
+    }
+
+    try {
+        // Create transaction
+        const { data: transactionData, error: transError } = await supabase
+            .from('transaction')
+            .insert([{
+                transaction_type,
+                amount,
+                from_account_id: transaction_type === 'EXPENSE' ? account_id : null,
+                to_account_id: transaction_type === 'INCOME' ? account_id : null,
+                category_id,
+                description: description || null,
+                transaction_date: transaction_date || new Date().toISOString().split('T')[0]
+            }])
+            .select();
+
+        if (transError) throw transError;
+
+        // Update account balance
+        const { data: account } = await supabase
+            .from('banking_account')
+            .select('current_balance')
+            .eq('account_id', account_id)
+            .single();
+
+        const newBalance = transaction_type === 'INCOME'
+            ? (account?.current_balance || 0) + amount
+            : (account?.current_balance || 0) - amount;
+
+        await supabase
+            .from('banking_account')
+            .update({ current_balance: newBalance })
+            .eq('account_id', account_id);
+
+        res.status(201).json({
+            ...transactionData[0],
+            new_balance: newBalance
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
