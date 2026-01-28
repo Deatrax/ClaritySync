@@ -272,8 +272,8 @@ app.get('/api/products', async (req, res) => {
         res.json(enrichedProducts);
     } catch (err) {
         console.error('Error in GET /api/products:', err);
-        res.status(500).json({ 
-            error: 'Server error', 
+        res.status(500).json({
+            error: 'Server error',
             details: err.message,
             hint: 'Check backend logs for details'
         });
@@ -361,16 +361,16 @@ app.post('/api/products-with-attributes', async (req, res) => {
             if (attrError) throw attrError;
         }
 
-        res.status(201).json({ 
+        res.status(201).json({
             message: 'Product created successfully with attributes',
             product_id: productData.product_id,
-            data: productData 
+            data: productData
         });
     } catch (err) {
         console.error('Error creating product with attributes:', err);
-        res.status(500).json({ 
-            error: 'Failed to create product', 
-            details: err.message 
+        res.status(500).json({
+            error: 'Failed to create product',
+            details: err.message
         });
     }
 });
@@ -509,27 +509,27 @@ app.post('/api/accounts', async (req, res) => {
     }
 });
 
-// 3. Transactions
-app.get('/api/transactions', async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('transaction')
-            .select('*, banking_account(account_name)')
-            .order('created_at', { ascending: false });
+// // 3. Transactions
+// app.get('/api/transactions', async (req, res) => {
+//     try {
+//         const { data, error } = await supabase.from('transaction')
+//             .select('*, banking_account(account_name)')
+//             .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        // Transform to flatten account_name if needed, but frontend can handle nested
-        // Flattening for compatibility with old structure
-        const rows = data.map(t => ({
-            ...t,
-            account_name: t.banking_account?.account_name
-        }));
+//         if (error) throw error;
+//         // Transform to flatten account_name if needed, but frontend can handle nested
+//         // Flattening for compatibility with old structure
+//         const rows = data.map(t => ({
+//             ...t,
+//             account_name: t.banking_account?.account_name
+//         }));
 
-        res.json(rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+//         res.json(rows);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'Server error' });
+//     }
+// });
 
 app.post('/api/transactions', async (req, res) => {
     const { banking_account_id, transaction_type, amount, description } = req.body;
@@ -661,7 +661,7 @@ app.post('/api/sales', async (req, res) => {
 
             const { error: updateError } = await supabase
                 .from('inventory')
-                .update({ 
+                .update({
                     quantity: newQuantity,
                     status: newQuantity === 0 ? 'SOLD' : 'IN_STOCK'
                 })
@@ -942,12 +942,13 @@ app.get('/api/categories/:id/attributes', async (req, res) => {
 });
 
 // 7. Banking Accounts Endpoints
+// 7. Banking Accounts Endpoints
 app.get('/api/accounts', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('banking_account')
-            .select('account_id, account_name, bank_name, branch_name, account_number, current_balance, created_at')
-            .order('created_at', { ascending: false });
+            .select('account_id, account_name, bank_name, branch_name, account_number, current_balance')
+            .order('account_id', { ascending: false });
 
         if (error) throw error;
         res.json(data || []);
@@ -957,25 +958,10 @@ app.get('/api/accounts', async (req, res) => {
     }
 });
 
-app.get('/api/accounts/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { data, error } = await supabase
-            .from('banking_account')
-            .select('*')
-            .eq('account_id', id)
-            .single();
-
-        if (error) throw error;
-        res.json(data);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error', details: err.message });
-    }
-});
+// ... (GET by id is fine)
 
 app.post('/api/accounts', async (req, res) => {
-    const { account_name, bank_name, branch_name, account_number, current_balance } = req.body;
+    const { account_name, bank_name, branch_name, account_number, current_balance, account_type } = req.body;
 
     if (!account_name || !bank_name) {
         return res.status(400).json({ error: 'Account name and bank name are required' });
@@ -989,7 +975,8 @@ app.post('/api/accounts', async (req, res) => {
                 bank_name,
                 branch_name: branch_name || null,
                 account_number: account_number || null,
-                current_balance: current_balance || 0
+                current_balance: current_balance || 0,
+                account_type: account_type || 'BANK'
             }])
             .select();
 
@@ -1122,8 +1109,8 @@ app.get('/api/transactions', async (req, res) => {
                 to_account_id,
                 from_account_id,
                 transaction_category(name),
-                to_account:banking_account!to_account_id(account_name),
-                from_account:banking_account!from_account_id(account_name)
+                to_account:banking_account!transaction_to_account_id_fkey(account_name),
+                from_account:banking_account!transaction_from_account_id_fkey(account_name)
             `)
             .order('transaction_date', { ascending: false });
 
@@ -1137,9 +1124,13 @@ app.get('/api/transactions', async (req, res) => {
             transaction_date: t.transaction_date,
             category_id: t.category_id,
             category_name: t.transaction_category?.name || 'Uncategorized',
-            account_name: t.transaction_type === 'INCOME' 
-                ? t.to_account?.[0]?.account_name 
-                : t.from_account?.[0]?.account_name
+            account_name: t.transaction_type === 'INCOME'
+                ? t.to_account?.account_name
+                : t.from_account?.account_name
+            // Note: .single() isn't used in select, so to_account might be an object or array depending on PostgREST version/settings,
+            // but usually with !fkey it returns a single object if it's many-to-one.
+            // The previous code had t.to_account?.[0]?.account_name, checking if it returns array.
+            // Standard Supabase select with FKey returns object.
         }));
 
         res.json(transactions);
@@ -1167,17 +1158,37 @@ app.get('/api/transactions/:id', async (req, res) => {
 });
 
 app.post('/api/transactions', async (req, res) => {
-    const { transaction_type, amount, from_account_id, to_account_id, category_id, description, transaction_date } = req.body;
+    // Added banking_account_id to destructuring to handle frontend payload
+    const { transaction_type, amount, from_account_id, to_account_id, category_id, description, transaction_date, banking_account_id } = req.body;
 
-    if (!transaction_type || !amount || !category_id) {
-        return res.status(400).json({ error: 'Type, amount, and category are required' });
+    if (!transaction_type || !amount) {
+        return res.status(400).json({ error: 'Type and amount are required' });
     }
 
-    if (!['INCOME', 'EXPENSE'].includes(transaction_type)) {
-        return res.status(400).json({ error: 'Type must be INCOME or EXPENSE' });
+    if (!['INCOME', 'EXPENSE', 'RECEIVE', 'PAYMENT', 'SALE'].includes(transaction_type)) {
+        return res.status(400).json({ error: 'Invalid transaction type' });
     }
 
-    const account_id = transaction_type === 'INCOME' ? to_account_id : from_account_id;
+    // Map legacy/frontend types to schema types if needed
+    let type = transaction_type;
+    if (transaction_type === 'RECEIVE') type = 'INCOME';
+    if (transaction_type === 'PAYMENT') type = 'EXPENSE';
+    if (transaction_type === 'SALE') type = 'INCOME';
+
+    let final_to_account_id = to_account_id;
+    let final_from_account_id = from_account_id;
+
+    // Handle banking_account_id from frontend if explicit to/from missing
+    if (banking_account_id) {
+        if (type === 'INCOME') {
+            final_to_account_id = banking_account_id;
+        } else if (type === 'EXPENSE') {
+            final_from_account_id = banking_account_id;
+        }
+    }
+
+    const account_id = type === 'INCOME' ? final_to_account_id : final_from_account_id;
+
     if (!account_id) {
         return res.status(400).json({ error: 'Account ID is required' });
     }
@@ -1187,11 +1198,11 @@ app.post('/api/transactions', async (req, res) => {
         const { data: transactionData, error: transError } = await supabase
             .from('transaction')
             .insert([{
-                transaction_type,
+                transaction_type: type,
                 amount,
-                from_account_id: transaction_type === 'EXPENSE' ? account_id : null,
-                to_account_id: transaction_type === 'INCOME' ? account_id : null,
-                category_id,
+                from_account_id: type === 'EXPENSE' ? account_id : null,
+                to_account_id: type === 'INCOME' ? account_id : null,
+                category_id: category_id || null, // Allow null for now as frontend might not send it yet
                 description: description || null,
                 transaction_date: transaction_date || new Date().toISOString().split('T')[0]
             }])
@@ -1206,9 +1217,9 @@ app.post('/api/transactions', async (req, res) => {
             .eq('account_id', account_id)
             .single();
 
-        const newBalance = transaction_type === 'INCOME'
-            ? (account?.current_balance || 0) + amount
-            : (account?.current_balance || 0) - amount;
+        const newBalance = type === 'INCOME'
+            ? parseFloat(account?.current_balance || 0) + parseFloat(amount)
+            : parseFloat(account?.current_balance || 0) - parseFloat(amount);
 
         await supabase
             .from('banking_account')

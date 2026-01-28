@@ -10,6 +10,7 @@ CREATE TABLE public.banking_account (
   bank_name character varying,
   branch_name character varying,
   swift_code character varying,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT banking_account_pkey PRIMARY KEY (account_id)
 );
 CREATE TABLE public.category (
