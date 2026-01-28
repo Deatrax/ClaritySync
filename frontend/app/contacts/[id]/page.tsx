@@ -36,7 +36,8 @@ export default function ContactDetailPage() {
     const [paymentForm, setPaymentForm] = useState({
         amount: '',
         account_id: '', // Default to Cash/First Account
-        description: 'Payment Received'
+        description: 'Payment',
+        transaction_type: 'RECEIVE'
     });
     const [accounts, setAccounts] = useState<any[]>([]);
 
@@ -95,7 +96,7 @@ export default function ContactDetailPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     banking_account_id: parseInt(paymentForm.account_id),
-                    transaction_type: 'RECEIVE',
+                    transaction_type: paymentForm.transaction_type,
                     amount: parseFloat(paymentForm.amount),
                     contact_id: id,
                     description: paymentForm.description
@@ -347,6 +348,28 @@ export default function ContactDetailPage() {
                         <h2 className="text-xl font-bold text-gray-900 mb-4">Settle Dues / Payment</h2>
 
                         <div className="space-y-4">
+                            {/* Transaction Type Selector */}
+                            <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-lg">
+                                <button
+                                    onClick={() => setPaymentForm({ ...paymentForm, transaction_type: 'RECEIVE' })}
+                                    className={`py-2 text-sm font-bold rounded-md transition-all ${paymentForm.transaction_type === 'RECEIVE'
+                                        ? 'bg-white text-green-700 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                >
+                                    Receive Money
+                                </button>
+                                <button
+                                    onClick={() => setPaymentForm({ ...paymentForm, transaction_type: 'PAYMENT' })}
+                                    className={`py-2 text-sm font-bold rounded-md transition-all ${paymentForm.transaction_type === 'PAYMENT'
+                                        ? 'bg-white text-red-700 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                >
+                                    Pay Vendor
+                                </button>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
                                 <div className="relative">
@@ -362,7 +385,9 @@ export default function ContactDetailPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Deposit To / Pay From Account</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {paymentForm.transaction_type === 'RECEIVE' ? 'Deposit To Account' : 'Pay From Account'}
+                                </label>
                                 <select
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     value={paymentForm.account_id}
@@ -398,9 +423,12 @@ export default function ContactDetailPage() {
                                 </button>
                                 <button
                                     onClick={handlePaymentSubmit}
-                                    className="flex-1 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg font-medium"
+                                    className={`flex-1 py-2 text-white rounded-lg font-medium transition-colors ${paymentForm.transaction_type === 'RECEIVE'
+                                        ? 'bg-green-600 hover:bg-green-700'
+                                        : 'bg-red-600 hover:bg-red-700'
+                                        }`}
                                 >
-                                    Confirm
+                                    {paymentForm.transaction_type === 'RECEIVE' ? 'Confirm Receipt' : 'Confirm Payment'}
                                 </button>
                             </div>
                         </div>
