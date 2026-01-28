@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Package, 
@@ -12,9 +13,12 @@ import {
   TrendingUp, 
   ArrowUpRight,
   ArrowDownRight,
-  Settings
+  Settings,
+  LogOut
 } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/app/context/AuthContext';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 interface DashboardStats {
   totalProducts: number;
@@ -22,9 +26,16 @@ interface DashboardStats {
   totalBalance: number;
 }
 
-export default function Dashboard() {
+function DashboardContent() {
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/auth/login');
+  };
 
   useEffect(() => {
     async function fetchStats() {
@@ -66,14 +77,23 @@ export default function Dashboard() {
         </nav>
 
         <div className="p-4 border-t border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
-              AD
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                {user?.email?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-medium">{user?.email}</p>
+                <p className="text-xs text-gray-500">ID: {user?.employee_id}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium">Admin User</p>
-              <p className="text-xs text-gray-500">Manager</p>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </aside>
@@ -236,5 +256,13 @@ function ActionButton({ href, title, subtitle, icon, color }: { href: string, ti
         <p className="text-white/80 text-xs">{subtitle}</p>
       </div>
     </Link>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }
