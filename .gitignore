@@ -140,3 +140,4 @@ vite.config.ts.timestamp-*
 
 # other things
 .vscode/
+secrets/backend_secrets
