@@ -11,6 +11,24 @@ app.use(express.json());
 
 // Routes
 
+// 0. Dashboard Stats
+app.get('/api/dashboard/stats', async (req, res) => {
+    try {
+        const productCountQuery = await db.query('SELECT COUNT(*) FROM product');
+        const customerCountQuery = await db.query("SELECT COUNT(*) FROM contacts WHERE contact_type IN ('CUSTOMER', 'BOTH')");
+        const balanceQuery = await db.query('SELECT SUM(current_balance) FROM banking_account');
+
+        res.json({
+            totalProducts: parseInt(productCountQuery.rows[0].count),
+            totalCustomers: parseInt(customerCountQuery.rows[0].count),
+            totalBalance: parseFloat(balanceQuery.rows[0].sum || 0)
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // 1. Products
 app.get('/api/products', async (req, res) => {
     try {
