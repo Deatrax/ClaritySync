@@ -531,20 +531,20 @@ app.get('/api/accounts', async (req, res) => {
 //     }
 // });
 
-app.post('/api/transactions', async (req, res) => {
-    const { banking_account_id, transaction_type, amount, description } = req.body;
-    try {
-        const { data, error } = await supabase.from('transaction').insert([
-            { banking_account_id, transaction_type, amount, description }
-        ]).select();
+// app.post('/api/transactions', async (req, res) => {
+//     const { banking_account_id, transaction_type, amount, description } = req.body;
+//     try {
+//         const { data, error } = await supabase.from('transaction').insert([
+//             { banking_account_id, transaction_type, amount, description }
+//         ]).select();
 
-        if (error) throw error;
-        res.status(201).json(data[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+//         if (error) throw error;
+//         res.status(201).json(data[0]);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'Server error' });
+//     }
+// });
 
 // 4. Employees
 app.get('/api/employees', async (req, res) => {
@@ -1157,84 +1157,160 @@ app.get('/api/transactions/:id', async (req, res) => {
     }
 });
 
-app.post('/api/transactions', async (req, res) => {
-    // Added banking_account_id to destructuring to handle frontend payload
-    const { transaction_type, amount, from_account_id, to_account_id, category_id, description, transaction_date, banking_account_id } = req.body;
+// app.post('/api/transactions', async (req, res) => {
+//     // Added banking_account_id to destructuring to handle frontend payload
+//     const { transaction_type, amount, from_account_id, to_account_id, category_id, description, transaction_date, banking_account_id } = req.body;
 
+//     if (!transaction_type || !amount) {
+//         return res.status(400).json({ error: 'Type and amount are required' });
+//     }
+
+//     if (!['INCOME', 'EXPENSE', 'RECEIVE', 'PAYMENT', 'SALE'].includes(transaction_type)) {
+//         return res.status(400).json({ error: 'Invalid transaction type' });
+//     }
+
+//     // Map legacy/frontend types to schema types if needed
+//     let type = transaction_type;
+//     if (transaction_type === 'RECEIVE') type = 'INCOME';
+//     if (transaction_type === 'PAYMENT') type = 'EXPENSE';
+//     if (transaction_type === 'SALE') type = 'INCOME';
+
+//     let final_to_account_id = to_account_id;
+//     let final_from_account_id = from_account_id;
+
+//     // Handle banking_account_id from frontend if explicit to/from missing
+//     if (banking_account_id) {
+//         if (type === 'INCOME') {
+//             final_to_account_id = banking_account_id;
+//         } else if (type === 'EXPENSE') {
+//             final_from_account_id = banking_account_id;
+//         }
+//     }
+
+//     const account_id = type === 'INCOME' ? final_to_account_id : final_from_account_id;
+
+//     if (!account_id) {
+//         return res.status(400).json({ error: 'Account ID is required' });
+//     }
+
+//     try {
+//         // Create transaction
+//         const { data: transactionData, error: transError } = await supabase
+//             .from('transaction')
+//             .insert([{
+//                 transaction_type: type,
+//                 amount,
+//                 from_account_id: type === 'EXPENSE' ? account_id : null,
+//                 to_account_id: type === 'INCOME' ? account_id : null,
+//                 category_id: category_id || null, // Allow null for now as frontend might not send it yet
+//                 description: description || null,
+//                 transaction_date: transaction_date || new Date().toISOString().split('T')[0]
+//             }])
+//             .select();
+
+//         if (transError) throw transError;
+
+//         // Update account balance
+//         const { data: account } = await supabase
+//             .from('banking_account')
+//             .select('current_balance')
+//             .eq('account_id', account_id)
+//             .single();
+
+//         const newBalance = type === 'INCOME'
+//             ? parseFloat(account?.current_balance || 0) + parseFloat(amount)
+//             : parseFloat(account?.current_balance || 0) - parseFloat(amount);
+
+//         await supabase
+//             .from('banking_account')
+//             .update({ current_balance: newBalance })
+//             .eq('account_id', account_id);
+
+//         res.status(201).json({
+//             ...transactionData[0],
+//             new_balance: newBalance
+//         });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'Server error', details: err.message });
+//     }
+// });
+app.post('/api/transactions', async (req, res) => {
+    const {
+        transaction_type,
+        amount,
+        description,
+        transaction_date,
+        banking_account_id,
+        from_account_id,
+        to_account_id,
+        contact_id,
+        category_id
+    } = req.body;
+
+    // 1. Validation
     if (!transaction_type || !amount) {
         return res.status(400).json({ error: 'Type and amount are required' });
     }
 
-    if (!['INCOME', 'EXPENSE', 'RECEIVE', 'PAYMENT', 'SALE'].includes(transaction_type)) {
-        return res.status(400).json({ error: 'Invalid transaction type' });
-    }
+    // 2. Normalize Types for Database Enum (Fixes the "Invalid Input" Error)
+    let dbType = transaction_type;
+    if (transaction_type === 'SALE') dbType = 'RECEIVE';
+    if (transaction_type === 'INCOME') dbType = 'RECEIVE';   // <--- The Fix
+    if (transaction_type === 'EXPENSE') dbType = 'PAYMENT';  // <--- The Fix
 
-    // Map legacy/frontend types to schema types if needed
-    let type = transaction_type;
-    if (transaction_type === 'RECEIVE') type = 'INCOME';
-    if (transaction_type === 'PAYMENT') type = 'EXPENSE';
-    if (transaction_type === 'SALE') type = 'INCOME';
+    // 3. Resolve Account IDs (Needed for the INSERT column)
+    const isMoneyIn = ['RECEIVE', 'INVESTMENT', 'INCOME', 'SALE'].includes(dbType);
+    const isMoneyOut = ['PAYMENT', 'TRANSFER', 'EXPENSE'].includes(dbType);
 
-    let final_to_account_id = to_account_id;
-    let final_from_account_id = from_account_id;
+    let final_to_account_id = to_account_id ? parseInt(to_account_id) : null;
+    let final_from_account_id = from_account_id ? parseInt(from_account_id) : null;
 
-    // Handle banking_account_id from frontend if explicit to/from missing
     if (banking_account_id) {
-        if (type === 'INCOME') {
-            final_to_account_id = banking_account_id;
-        } else if (type === 'EXPENSE') {
-            final_from_account_id = banking_account_id;
-        }
-    }
-
-    const account_id = type === 'INCOME' ? final_to_account_id : final_from_account_id;
-
-    if (!account_id) {
-        return res.status(400).json({ error: 'Account ID is required' });
+        if (isMoneyIn) final_to_account_id = parseInt(banking_account_id);
+        else if (isMoneyOut) final_from_account_id = parseInt(banking_account_id);
     }
 
     try {
-        // Create transaction
+        // 4. INSERT ONLY
+        // We do NOT manually update banking_account or contacts here.
+        // Your SQL Triggers will do it automatically.
         const { data: transactionData, error: transError } = await supabase
             .from('transaction')
             .insert([{
-                transaction_type: type,
-                amount,
-                from_account_id: type === 'EXPENSE' ? account_id : null,
-                to_account_id: type === 'INCOME' ? account_id : null,
-                category_id: category_id || null, // Allow null for now as frontend might not send it yet
+                transaction_type: dbType, // We send 'RECEIVE' or 'PAYMENT'
+                amount: parseFloat(amount),
+                from_account_id: final_from_account_id,
+                to_account_id: final_to_account_id,
+                contact_id: contact_id ? parseInt(contact_id) : null,
+                category_id: category_id ? parseInt(category_id) : null,
                 description: description || null,
-                transaction_date: transaction_date || new Date().toISOString().split('T')[0]
+                transaction_date: transaction_date || new Date().toISOString()
             }])
             .select();
 
         if (transError) throw transError;
 
-        // Update account balance
+        // 5. Fetch updated balance (Purely for UI feedback)
+        // We fetch it because the DB changed it in the background
+        const target_account_id = isMoneyIn ? final_to_account_id : final_from_account_id;
         const { data: account } = await supabase
             .from('banking_account')
             .select('current_balance')
-            .eq('account_id', account_id)
+            .eq('account_id', target_account_id)
             .single();
-
-        const newBalance = type === 'INCOME'
-            ? parseFloat(account?.current_balance || 0) + parseFloat(amount)
-            : parseFloat(account?.current_balance || 0) - parseFloat(amount);
-
-        await supabase
-            .from('banking_account')
-            .update({ current_balance: newBalance })
-            .eq('account_id', account_id);
 
         res.status(201).json({
             ...transactionData[0],
-            new_balance: newBalance
+            new_balance: account?.current_balance
         });
+
     } catch (err) {
-        console.error(err);
+        console.error("Transaction Error:", err);
         res.status(500).json({ error: 'Server error', details: err.message });
     }
 });
+
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
