@@ -20,13 +20,32 @@ export default function ContactDetailPage() {
   const [contact, setContact] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [view, setView] = useState<'overview' | 'history'>('overview');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+     name: '',
+     phone: '',
+     email: '',
+     address: '',
+     contact_type: ''
+  });
 
   useEffect(() => {
     async function fetchData() {
       try {
         const resContact = await fetch(`/api/contacts/${id}`);
-        if (resContact.ok) setContact(await resContact.json());
+        if (resContact.ok) {
+            const data = await resContact.json();
+            setContact(data);
+            setEditForm({
+                name: data.name,
+                phone: data.phone || '',
+                email: data.email || '',
+                address: data.address || '',
+                contact_type: data.contact_type
+            });
+        }
 
         const resHistory = await fetch(`/api/contacts/${id}/history`);
         if (resHistory.ok) setHistory(await resHistory.json());
@@ -50,20 +69,122 @@ export default function ContactDetailPage() {
              <Link href="/contacts" className="text-gray-500 hover:text-gray-700">
               <ArrowLeft className="w-6 h-6" />
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">{contact.name}</h1>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
-              ${contact.contact_type === 'CUSTOMER' ? 'bg-green-100 text-green-800' : 
-                contact.contact_type === 'SUPPLIER' ? 'bg-purple-100 text-purple-800' : 
-                'bg-blue-100 text-blue-800'}`}>
-              {contact.contact_type}
-            </span>
+            
+            {isEditing ? (
+                 <input 
+                    type="text" 
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                    className="text-3xl font-bold text-gray-900 border-b-2 border-blue-500 focus:outline-none px-2"
+                 />
+            ) : (
+                <h1 className="text-3xl font-bold text-gray-900">{contact.name}</h1>
+            )}
+
+            {isEditing ? (
+                 <select 
+                    value={editForm.contact_type}
+                    onChange={(e) => setEditForm({...editForm, contact_type: e.target.value})}
+                    className="text-sm border border-gray-300 rounded-md p-1"
+                 >
+                    <option value="CUSTOMER">CUSTOMER</option>
+                    <option value="SUPPLIER">SUPPLIER</option>
+                    <option value="BOTH">BOTH</option>
+                 </select>
+            ) : (
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+                ${contact.contact_type === 'CUSTOMER' ? 'bg-green-100 text-green-800' : 
+                    contact.contact_type === 'SUPPLIER' ? 'bg-purple-100 text-purple-800' : 
+                    'bg-blue-100 text-blue-800'}`}>
+                {contact.contact_type}
+                </span>
+            )}
+
+            <div className="ml-auto flex gap-2">
+                {isEditing ? (
+                    <>
+                        <button 
+                            onClick={() => setIsEditing(false)}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={async () => {
+                                try {
+                                    const res = await fetch(`/api/contacts/${id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(editForm)
+                                    });
+                                    if (res.ok) {
+                                        const updated = await res.json();
+                                        setContact({...contact, ...updated});
+                                        setIsEditing(false);
+                                    } else {
+                                        alert('Failed to update');
+                                    }
+                                } catch (err) {
+                                    console.error(err);
+                                    alert('Error updating');
+                                }
+                            }}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                        >
+                            Save Changes
+                        </button>
+                    </>
+                ) : (
+                    <button 
+                        onClick={() => setIsEditing(true)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                        Edit Profile
+                    </button>
+                )}
+            </div>
           </div>
 
           {/* Quick Info */}
-          <div className="flex flex-wrap gap-6 text-sm text-gray-600">
-            {contact.phone && <div className="flex items-center gap-2"><Phone className="w-4 h-4" /> {contact.phone}</div>}
-            {contact.email && <div className="flex items-center gap-2"><Mail className="w-4 h-4" /> {contact.email}</div>}
-            {contact.address && <div className="flex items-center gap-2 max-w-md"><MapPin className="w-4 h-4 flex-shrink-0" /> {contact.address}</div>}
+          <div className="flex flex-wrap gap-6 text-sm text-gray-600 mt-4">
+            {isEditing ? (
+                <div className="flex flex-col gap-3 w-full max-w-xl p-4 bg-gray-50 rounded-lg border border-gray-200">
+                     <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-gray-400" /> 
+                        <input 
+                            className="flex-1 border border-gray-300 rounded px-2 py-1" 
+                            placeholder="Phone"
+                            value={editForm.phone}
+                            onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                        />
+                     </div>
+                     <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-gray-400" /> 
+                        <input 
+                            className="flex-1 border border-gray-300 rounded px-2 py-1" 
+                            placeholder="Email"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                        />
+                     </div>
+                     <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-400" /> 
+                        <textarea 
+                            className="flex-1 border border-gray-300 rounded px-2 py-1" 
+                            placeholder="Address"
+                            rows={2}
+                            value={editForm.address}
+                            onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                        />
+                     </div>
+                </div>
+            ) : (
+                <>
+                {contact.phone && <div className="flex items-center gap-2"><Phone className="w-4 h-4" /> {contact.phone}</div>}
+                {contact.email && <div className="flex items-center gap-2"><Mail className="w-4 h-4" /> {contact.email}</div>}
+                {contact.address && <div className="flex items-center gap-2 max-w-md"><MapPin className="w-4 h-4 flex-shrink-0" /> {contact.address}</div>}
+                </>
+            )}
           </div>
         </div>
       </div>

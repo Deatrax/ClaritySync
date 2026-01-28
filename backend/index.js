@@ -760,6 +760,26 @@ app.get('/api/contacts/:id', async (req, res) => {
     }
 });
 
+app.put('/api/contacts/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, phone, email, address, contact_type } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('contacts')
+            .update({ name, phone, email, address, contact_type })
+            .eq('contact_id', id)
+            .select();
+
+        if (error) throw error;
+        if (data.length === 0) return res.status(404).json({ error: 'Contact not found' });
+
+        res.json(data[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 app.get('/api/contacts/:id/history', async (req, res) => {
     const { id } = req.params;
     try {
