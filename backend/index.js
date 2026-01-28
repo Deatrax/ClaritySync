@@ -483,6 +483,196 @@ app.post('/api/employees', async (req, res) => {
     }
 });
 
+// 4.5 Sales
+app.get('/api/sales', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('sales')
+            .select(`
+                sale_id,
+                contact_id,
+                total_amount,
+                discount,
+                payment_method,
+                public_receipt_token,
+                sale_date,
+                contacts (name, phone)
+            `)
+            .order('sale_date', { ascending: false });
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/sales', async (req, res) => {
+    const {
+        contact_id,
+        is_walk_in,
+        items,
+        subtotal,
+        tax,
+        discount,
+        total,
+        payment_method,
+        payment_status
+    } = req.body;
+
+    try {
+        // Generate receipt token
+        const receiptToken = `RECEIPT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // 1. Create sale record
+        const { data: sale, error: saleError } = await supabase
+            .from('sales')
+            .insert([{
+                contact_id: contact_id || null,
+                total_amount: total,
+                discount: discount || 0,
+                payment_method: payment_method,
+                public_receipt_token: receiptToken,
+                sale_date: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+        if (saleError) throw saleError;
+
+        // 2. Create sale items
+        const saleItems = items.map(item => ({
+            sale_id: sale.sale_id,
+            product_id: item.product_id || null,
+            inventory_id: item.inventory_id || null,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal
+        }));
+
+        const { error: itemsError } = await supabase
+            .from('sale_item')
+            .insert(saleItems);
+
+        if (itemsError) throw itemsError;
+
+        // 3. Update inventory quantities
+        for (const item of items) {
+            const { data: inventory, error: invError } = await supabase
+                .from('inventory')
+                .select('quantity')
+                .eq('inventory_id', item.inventory_id)
+                .single();
+
+            if (invError) throw invError;
+
+            const newQuantity = inventory.quantity - item.quantity;
+
+            const { error: updateError } = await supabase
+                .from('inventory')
+                .update({ 
+                    quantity: newQuantity,
+                    status: newQuantity === 0 ? 'SOLD' : 'IN_STOCK'
+                })
+                .eq('inventory_id', item.inventory_id);
+
+            if (updateError) throw updateError;
+        }
+
+        // 4. Record transaction (if not walk-in and payment method is cash/bank)
+        if (payment_method !== 'due') {
+            // Get account (assuming account_id 1 for now - can be parameterized)
+            const accountId = payment_method === 'cash' ? 1 : 2;
+
+            const { data: account } = await supabase
+                .from('banking_account')
+                .select('current_balance')
+                .eq('account_id', accountId)
+                .single();
+
+            if (account) {
+                const newBalance = (account.current_balance || 0) + total;
+
+                await supabase
+                    .from('banking_account')
+                    .update({ current_balance: newBalance })
+                    .eq('account_id', accountId);
+
+                // Log transaction
+                await supabase
+                    .from('transaction')
+                    .insert([{
+                        transaction_type: 'SALE',
+                        amount: total,
+                        to_account_id: accountId,
+                        contact_id: contact_id || null,
+                        description: `Sale #${sale.sale_id}`,
+                        transaction_date: new Date().toISOString()
+                    }]);
+            }
+        } else if (payment_method === 'due' && contact_id) {
+            // Update customer's due balance
+            const { data: contact } = await supabase
+                .from('contacts')
+                .select('account_balance')
+                .eq('contact_id', contact_id)
+                .single();
+
+            if (contact) {
+                const newBalance = (contact.account_balance || 0) + total;
+
+                await supabase
+                    .from('contacts')
+                    .update({ account_balance: newBalance })
+                    .eq('contact_id', contact_id);
+            }
+        }
+
+        res.status(201).json({
+            sale_id: sale.sale_id,
+            public_receipt_token: receiptToken,
+            total_amount: total,
+            payment_method: payment_method,
+            message: 'Sale completed successfully'
+        });
+    } catch (err) {
+        console.error('Sales error:', err);
+        res.status(500).json({ error: 'Failed to process sale', details: err.message });
+    }
+});
+
+app.get('/api/sales/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data: sale, error: saleError } = await supabase
+            .from('sales')
+            .select(`
+                *,
+                contacts (name, phone, email),
+                sale_item (
+                    sale_item_id,
+                    quantity,
+                    unit_price,
+                    subtotal,
+                    product (product_name),
+                    inventory (serial_number)
+                )
+            `)
+            .eq('sale_id', id)
+            .single();
+
+        if (saleError || !sale) {
+            return res.status(404).json({ error: 'Sale not found' });
+        }
+
+        res.json(sale);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // 5. Contacts
 app.get('/api/contacts', async (req, res) => {
     const { search, sort } = req.query;
