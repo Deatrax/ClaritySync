@@ -103,6 +103,7 @@ export default function NewContactPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
               <input 
+                required
                 type="text" 
                 value={formData.phone}
                 onChange={(e) => setFormData({...formData, phone: e.target.value})}
@@ -114,6 +115,7 @@ export default function NewContactPage() {
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
               <input 
+                required
                 type="email" 
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -125,6 +127,7 @@ export default function NewContactPage() {
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
               <textarea 
+                required
                 value={formData.address}
                 onChange={(e) => setFormData({...formData, address: e.target.value})}
                 rows={3}
@@ -141,6 +144,7 @@ export default function NewContactPage() {
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                       <input 
+                        required
                         type="number" 
                         min="0"
                         step="0.01"
