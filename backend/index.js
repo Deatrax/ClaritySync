@@ -93,10 +93,17 @@ app.get('/api/dashboard/stats', async (req, res) => {
     }
 });
 
-// 1. Categories
+// 1. Categories (Dynamic Attributes Support)
 app.get('/api/categories', async (req, res) => {
     try {
-        const { data, error } = await supabase.from('category').select('*').order('category_id', { ascending: true });
+        const { data, error } = await supabase
+            .from('category')
+            .select(`
+                *,
+                category_attribute (*)
+            `)
+            .order('category_name');
+
         if (error) throw error;
         res.json(data);
     } catch (err) {
@@ -106,14 +113,36 @@ app.get('/api/categories', async (req, res) => {
 });
 
 app.post('/api/categories', async (req, res) => {
-    const { category_name, description } = req.body;
-    try {
-        const { data, error } = await supabase.from('category').insert([
-            { category_name, description }
-        ]).select();
+    const { category_name, description, attributes } = req.body;
+    // attributes = [{ attribute_name, data_type, is_required }]
 
-        if (error) throw error;
-        res.status(201).json(data[0]);
+    try {
+        // 1. Create Category
+        const { data: catData, error: catError } = await supabase
+            .from('category')
+            .insert([{ category_name, description }])
+            .select()
+            .single();
+
+        if (catError) throw catError;
+
+        // 2. Create Attributes Definition
+        if (attributes && attributes.length > 0) {
+            const attrInserts = attributes.map(attr => ({
+                category_id: catData.category_id,
+                attribute_name: attr.attribute_name,
+                data_type: attr.data_type || 'VARCHAR',
+                is_required: attr.is_required || false
+            }));
+
+            const { error: attrError } = await supabase
+                .from('category_attribute')
+                .insert(attrInserts);
+
+            if (attrError) throw attrError;
+        }
+
+        res.status(201).json(catData);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
@@ -150,16 +179,16 @@ app.post('/api/categories/seed/defaults', async (req, res) => {
         console.log('Existing categories:', existingCategories?.length || 0);
 
         // Filter out categories that already exist
-        const categoriesToInsert = defaultCategories.filter(newCat => 
+        const categoriesToInsert = defaultCategories.filter(newCat =>
             !existingCategories?.some(existing => existing.category_name === newCat.category_name)
         );
 
         if (categoriesToInsert.length === 0) {
             console.log('All categories already exist');
-            return res.status(200).json({ 
-                message: 'All categories already exist', 
-                count: 0, 
-                data: [] 
+            return res.status(200).json({
+                message: 'All categories already exist',
+                count: 0,
+                data: []
             });
         }
 
@@ -175,44 +204,39 @@ app.post('/api/categories/seed/defaults', async (req, res) => {
         }
 
         console.log(`Successfully seeded ${data?.length || 0} categories`);
-        res.status(201).json({ 
-            message: 'Categories seeded successfully', 
-            count: data?.length || 0, 
+        res.status(201).json({
+            message: 'Categories seeded successfully',
+            count: data?.length || 0,
             data: data || [],
             skipped: defaultCategories.length - (data?.length || 0)
         });
     } catch (err) {
         console.error('Fatal error in seed categories:', err);
-        res.status(500).json({ 
-            error: 'Failed to seed categories', 
+        res.status(500).json({
+            error: 'Failed to seed categories',
             details: err.message || String(err),
             code: err.code
         });
     }
 });
 
-// 2. Products
+// 2. Products (Dynamic Attributes Support)
 app.get('/api/products', async (req, res) => {
     try {
-        const { data, error } = await supabase.from('product')
+        const { data: products, error } = await supabase
+            .from('product')
             .select(`
-                product_id,
-                category_id,
-                product_name,
-                brand,
-                has_serial_number,
-                selling_price_estimate,
-                category(category_name)
+                *,
+                category (category_name),
+                product_attribute_value (
+                    attribute_id,
+                    attribute_value,
+                    category_attribute (attribute_name, data_type)
+                )
             `)
-            .order('product_id', { ascending: false });
+            .order('created_at', { ascending: false });
+
         if (error) throw error;
-        
-        // Flatten the category data
-        const products = data?.map(p => ({
-            ...p,
-            category_name: p.category?.category_name || 'Uncategorized'
-        })) || [];
-        
         res.json(products);
     } catch (err) {
         console.error(err);
@@ -221,110 +245,47 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', async (req, res) => {
-    const { category_id, product_name, brand, has_serial_number, selling_price_estimate } = req.body;
-    try {
-        const { data, error } = await supabase.from('product').insert([
-            { 
-                category_id: category_id || null,
-                product_name, 
-                brand, 
-                has_serial_number: has_serial_number || false,
-                selling_price_estimate: selling_price_estimate || null
-            }
-        ]).select();
+    const { product_name, category_id, brand, selling_price_estimate, has_serial_number, attributes } = req.body;
 
-        if (error) throw error;
-        res.status(201).json(data[0]);
+    try {
+        // 1. Create Product
+        const { data: productData, error: productError } = await supabase.from('product').insert([
+            {
+                product_name,
+                category_id,
+                brand,
+                selling_price_estimate,
+                has_serial_number: has_serial_number || false
+            }
+        ]).select().single();
+
+        if (productError) throw productError;
+
+        const productId = productData.product_id;
+
+        // 2. Insert Attribute Values (if any)
+        if (attributes && attributes.length > 0) {
+            const attrInserts = attributes.map(attr => ({
+                product_id: productId,
+                attribute_id: attr.attribute_id,
+                attribute_value: attr.value
+            }));
+
+            const { error: attrError } = await supabase
+                .from('product_attribute_value')
+                .insert(attrInserts);
+
+            if (attrError) throw attrError;
+        }
+
+        res.status(201).json(productData);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-// POST Products with Attributes
-app.post('/api/products-with-attributes', async (req, res) => {
-    const { category_id, product_name, brand, has_serial_number, selling_price_estimate, attributes } = req.body;
-    
-    try {
-        // Validate required fields
-        if (!product_name) {
-            return res.status(400).json({ error: 'product_name is required' });
-        }
 
-        console.log('=== Creating product with attributes ===');
-        console.log('Request body:', JSON.stringify(req.body, null, 2));
-
-        // Step 1: Insert product
-        const { data: productData, error: productError } = await supabase.from('product').insert([
-            { 
-                category_id: category_id || null,
-                product_name, 
-                brand: brand || null, 
-                has_serial_number: has_serial_number || false,
-                selling_price_estimate: selling_price_estimate || null
-            }
-        ]).select();
-
-        if (productError) {
-            console.error('Product insertion error:', productError);
-            throw productError;
-        }
-        
-        const product = productData[0];
-        const product_id = product.product_id;
-        console.log('Product created with ID:', product_id);
-
-        // Step 2: Insert attribute values (if provided)
-        if (attributes && Array.isArray(attributes) && attributes.length > 0) {
-            const attributeInserts = attributes.map(attr => ({
-                product_id: product_id,
-                attribute_id: attr.attribute_id,
-                attribute_value: String(attr.value)
-            }));
-
-            console.log('Inserting attributes:', attributeInserts);
-
-            const { error: attrError } = await supabase.from('product_attribute_value').insert(attributeInserts);
-
-            if (attrError) {
-                console.error('Attribute insertion error:', attrError);
-                throw attrError;
-            }
-        }
-
-        // Step 3: Fetch the complete product with its attributes
-        const { data: completeProduct, error: fetchError } = await supabase
-            .from('product')
-            .select(`
-                product_id,
-                category_id,
-                product_name,
-                brand,
-                has_serial_number,
-                selling_price_estimate,
-                category(category_name),
-                product_attribute_value(attribute_id, attribute_value, category_attribute(attribute_name, data_type))
-            `)
-            .eq('product_id', product_id)
-            .single();
-
-        if (fetchError) {
-            console.error('Fetch error:', fetchError);
-            throw fetchError;
-        }
-
-        console.log('Product created successfully');
-
-        res.status(201).json({
-            ...completeProduct,
-            category_name: completeProduct.category?.category_name,
-            attributes: completeProduct.product_attribute_value || []
-        });
-    } catch (err) {
-        console.error('Error creating product:', err);
-        res.status(500).json({ error: 'Server error', details: err.message || String(err) });
-    }
-});
 
 
 // DELETE Product
@@ -375,16 +336,16 @@ app.get('/api/inventory', async (req, res) => {
             `)
             .eq('status', 'IN_STOCK')
             .order('inventory_id', { ascending: false });
-        
+
         if (error) throw error;
-        
+
         // Flatten the nested data
         const inventory = data?.map(i => ({
             ...i,
             product_name: i.product?.product_name || 'Unknown',
             supplier_name: i.contacts?.name || 'Unknown Supplier'
         })) || [];
-        
+
         res.json(inventory);
     } catch (err) {
         console.error(err);
@@ -392,7 +353,7 @@ app.get('/api/inventory', async (req, res) => {
     }
 });
 
-app.post('/api/inventory', async (req, res) => {
+app.post('/api/inventory/add', async (req, res) => {
     const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_number, account_id } = req.body;
     try {
         // Step 1: Add inventory item
