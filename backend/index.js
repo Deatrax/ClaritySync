@@ -494,20 +494,20 @@ app.get('/api/accounts', async (req, res) => {
     }
 });
 
-app.post('/api/accounts', async (req, res) => {
-    const { account_name, account_type, initial_balance } = req.body;
-    try {
-        const { data, error } = await supabase.from('banking_account').insert([
-            { account_name, account_type, current_balance: initial_balance || 0 }
-        ]).select();
+// app.post('/api/accounts', async (req, res) => {
+//     const { account_name, account_type, initial_balance } = req.body;
+//     try {
+//         const { data, error } = await supabase.from('banking_account').insert([
+//             { account_name, account_type, current_balance: initial_balance || 0 }
+//         ]).select();
 
-        if (error) throw error;
-        res.status(201).json(data[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+//         if (error) throw error;
+//         res.status(201).json(data[0]);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'Server error' });
+//     }
+// });
 
 // // 3. Transactions
 // app.get('/api/transactions', async (req, res) => {
