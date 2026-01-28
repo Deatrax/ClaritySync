@@ -31,6 +31,15 @@ export default function ContactDetailPage() {
      contact_type: ''
   });
 
+  // Payment Modal State
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    account_id: '1', // Default to Cash/First Account
+    description: 'Payment Received'
+  });
+  const [accounts, setAccounts] = useState<any[]>([]);
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -49,6 +58,11 @@ export default function ContactDetailPage() {
 
         const resHistory = await fetch(`/api/contacts/${id}/history`);
         if (resHistory.ok) setHistory(await resHistory.json());
+        
+        // Fetch accounts for payment dropdown
+        const resAccounts = await fetch('/api/accounts');
+        if (resAccounts.ok) setAccounts(await resAccounts.json());
+
       } catch (error) {
         console.error("Failed to fetch data", error);
       } finally {
@@ -57,6 +71,38 @@ export default function ContactDetailPage() {
     }
     if (id) fetchData();
   }, [id]);
+
+  const handlePaymentSubmit = async () => {
+    if (!paymentForm.amount || isNaN(Number(paymentForm.amount))) {
+        alert("Please enter a valid amount");
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                banking_account_id: parseInt(paymentForm.account_id),
+                transaction_type: 'RECEIVE', 
+                amount: parseFloat(paymentForm.amount),
+                contact_id: id,
+                description: paymentForm.description
+            })
+        });
+
+        if (res.ok) {
+            alert("Payment Received Successfully!");
+            setIsPaymentModalOpen(false);
+            window.location.reload(); 
+        } else {
+            alert("Failed to record payment");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error processing payment");
+    }
+  };
 
   if (loading) return <div className="p-12 text-center">Loading...</div>;
   if (!contact) return <div className="p-12 text-center">Contact not found</div>;
@@ -210,6 +256,18 @@ export default function ContactDetailPage() {
                 <p className="text-gray-500 text-sm font-medium">Total Transactions</p>
                 <div className="text-2xl font-bold mt-1 text-gray-900">{contact.stats?.totalTransactions}</div>
             </div>
+            
+            {/* Payment Button Card */}
+             <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 shadow-sm flex flex-col items-center justify-center text-center col-span-1 md:col-span-3 lg:col-span-1">
+                <p className="text-blue-800 font-medium mb-3">Settle Dues or Add Fund</p>
+                <button 
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-sm transition-colors flex items-center justify-center gap-2"
+                >
+                    <DollarSign className="w-5 h-5" />
+                    Receive / Pay
+                </button>
+            </div>
         </div>
 
         {/* Action Button for History */}
@@ -270,6 +328,73 @@ export default function ContactDetailPage() {
             </div>
         )}
       </div>
+
+       {/* Payment Modal */}
+       {isPaymentModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Settle Dues / Payment</h2>
+                
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                            <input 
+                                type="number" 
+                                className="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                placeholder="0.00"
+                                value={paymentForm.amount}
+                                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Deposit To / Pay From Account</label>
+                        <select 
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={paymentForm.account_id}
+                            onChange={(e) => setPaymentForm({...paymentForm, account_id: e.target.value})}
+                        >
+                            {accounts.map(acc => (
+                                <option key={acc.account_id} value={acc.account_id}>
+                                    {acc.account_name} (${acc.current_balance})
+                                </option>
+                            ))}
+                             {accounts.length === 0 && <option value="1">Default Cash</option>}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description/Note</label>
+                        <textarea 
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            rows={3}
+                            value={paymentForm.description}
+                            onChange={(e) => setPaymentForm({...paymentForm, description: e.target.value})}
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                        <button 
+                            onClick={() => setIsPaymentModalOpen(false)}
+                            className="flex-1 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handlePaymentSubmit}
+                            className="flex-1 py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg font-medium"
+                        >
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 }
