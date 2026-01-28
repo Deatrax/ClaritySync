@@ -1,0 +1,154 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { 
+  ArrowLeft, 
+  MapPin, 
+  Mail, 
+  Phone,
+  DollarSign,
+  Briefcase,
+  History,
+  FileText
+} from 'lucide-react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+
+export default function ContactDetailPage() {
+  const params = useParams();
+  const id = params.id;
+  const [contact, setContact] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<'overview' | 'history'>('overview');
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const resContact = await fetch(`/api/contacts/${id}`);
+        if (resContact.ok) setContact(await resContact.json());
+
+        const resHistory = await fetch(`/api/contacts/${id}/history`);
+        if (resHistory.ok) setHistory(await resHistory.json());
+      } catch (error) {
+        console.error("Failed to fetch data", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (id) fetchData();
+  }, [id]);
+
+  if (loading) return <div className="p-12 text-center">Loading...</div>;
+  if (!contact) return <div className="p-12 text-center">Contact not found</div>;
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center gap-4 mb-4">
+             <Link href="/contacts" className="text-gray-500 hover:text-gray-700">
+              <ArrowLeft className="w-6 h-6" />
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-900">{contact.name}</h1>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide
+              ${contact.contact_type === 'CUSTOMER' ? 'bg-green-100 text-green-800' : 
+                contact.contact_type === 'SUPPLIER' ? 'bg-purple-100 text-purple-800' : 
+                'bg-blue-100 text-blue-800'}`}>
+              {contact.contact_type}
+            </span>
+          </div>
+
+          {/* Quick Info */}
+          <div className="flex flex-wrap gap-6 text-sm text-gray-600">
+            {contact.phone && <div className="flex items-center gap-2"><Phone className="w-4 h-4" /> {contact.phone}</div>}
+            {contact.email && <div className="flex items-center gap-2"><Mail className="w-4 h-4" /> {contact.email}</div>}
+            {contact.address && <div className="flex items-center gap-2 max-w-md"><MapPin className="w-4 h-4 flex-shrink-0" /> {contact.address}</div>}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <p className="text-gray-500 text-sm font-medium">Current Balance</p>
+                <div className={`text-2xl font-bold mt-1 ${parseFloat(String(contact.account_balance)) > 0 ? 'text-red-600' : parseFloat(String(contact.account_balance)) < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                    ${Math.abs(contact.account_balance).toLocaleString()}
+                    <span className="text-xs font-normal text-gray-400 ml-2">
+                        {parseFloat(String(contact.account_balance)) > 0 ? '(Receivable)' : parseFloat(String(contact.account_balance)) < 0 ? '(Payable)' : '(Paid)'}
+                    </span>
+                </div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <p className="text-gray-500 text-sm font-medium">Total Spent</p>
+                <div className="text-2xl font-bold mt-1 text-gray-900">${contact.stats?.totalSpent?.toLocaleString() || 0}</div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <p className="text-gray-500 text-sm font-medium">Total Transactions</p>
+                <div className="text-2xl font-bold mt-1 text-gray-900">{contact.stats?.totalTransactions}</div>
+            </div>
+        </div>
+
+        {/* Action Button for History */}
+        <div className="flex border-b border-gray-200 mb-6">
+            <button 
+                onClick={() => setView('overview')}
+                className={`mr-8 pb-4 font-medium text-sm transition-colors ${view === 'overview' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                Overview
+            </button>
+            <button 
+                onClick={() => setView('history')}
+                className={`pb-4 font-medium text-sm transition-colors ${view === 'history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+                Transaction History
+            </button>
+        </div>
+
+        {view === 'history' && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left text-sm text-gray-600">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-medium">
+                    <tr>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Type</th>
+                    <th className="px-6 py-4">Description</th>
+                    <th className="px-6 py-4 text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    {history.map((item, i) => (
+                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                            {new Date(item.date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold
+                                ${item.transaction_type === 'PAYMENT' ? 'bg-red-100 text-red-800' : 
+                                item.transaction_type === 'RECEIVE' ? 'bg-green-100 text-green-800' : 
+                                item.transaction_type === 'SALE' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'}`}>
+                                {item.transaction_type}
+                            </span>
+                        </td>
+                        <td className="px-6 py-4 font-medium text-gray-900">
+                            {item.description}
+                        </td>
+                         <td className="px-6 py-4 text-right font-bold text-gray-900">
+                            ${Math.abs(item.amount).toLocaleString()}
+                        </td>
+                    </tr>
+                    ))}
+                    {history.length === 0 && (
+                         <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-400">No transactions found.</td></tr>
+                    )}
+                </tbody>
+                </table>
+            </div>
+        )}
+      </div>
+    </div>
+  );
+}

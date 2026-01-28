@@ -42,7 +42,7 @@ I basically want to do the follwing for the progress presentation:
 5. sell products to registered customers (cash or bank or ledger. if leger then the customer will incur a due)
 6. Generate public recept
 7. view the inventory and stocks. 
-. view customers and suppliers (contacts) and sort the table in anyway like most dues, sales etc. 
+8. view customers and suppliers (contacts) and sort the table in anyway like most dues, sales etc. 
 9. each customer will have their own info page when clicked where their transactions stats will be displayed
 10. on the customer's info page a button will show their transaction history with purchase and sales invoices referenced.
 

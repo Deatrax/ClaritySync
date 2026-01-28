@@ -136,6 +136,118 @@ app.post('/api/employees', async (req, res) => {
 });
 
 
+// 5. Contacts
+app.get('/api/contacts', async (req, res) => {
+    const { search, sort } = req.query;
+    try {
+        let queryText = 'SELECT * FROM contacts';
+        const params = [];
+
+        if (search) {
+            queryText += ` WHERE name ILIKE $1 OR phone ILIKE $1 OR email ILIKE $1`;
+            params.push(`%${search}%`);
+        }
+
+        if (sort === 'balance_desc') {
+            queryText += ' ORDER BY account_balance DESC';
+        } else if (sort === 'balance_asc') {
+            queryText += ' ORDER BY account_balance ASC';
+        } else {
+            queryText += ' ORDER BY contact_id DESC';
+        }
+
+        const { rows } = await db.query(queryText, params);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/contacts', async (req, res) => {
+    const { name, phone, email, address, contact_type } = req.body;
+    try {
+        const { rows } = await db.query(
+            "INSERT INTO contacts (name, phone, email, address, contact_type) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+            [name, phone, email, address, contact_type || 'CUSTOMER']
+        );
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.get('/api/contacts/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const contactQuery = await db.query('SELECT * FROM contacts WHERE contact_id = $1', [id]);
+
+        if (contactQuery.rows.length === 0) {
+            return res.status(404).json({ error: 'Contact not found' });
+        }
+
+        // Fetch Stats
+        const salesQuery = await db.query('SELECT COUNT(*) as count, SUM(total_amount) as total FROM sales WHERE contact_id = $1', [id]);
+        const transQuery = await db.query('SELECT COUNT(*) as count FROM transaction WHERE contact_id = $1', [id]);
+
+        res.json({
+            ...contactQuery.rows[0],
+            stats: {
+                totalSales: parseInt(salesQuery.rows[0].count || 0),
+                totalSpent: parseFloat(salesQuery.rows[0].total || 0),
+                totalTransactions: parseInt(transQuery.rows[0].count || 0)
+            }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.get('/api/contacts/:id/history', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Fetch Transactions
+        const transQuery = await db.query(`
+            SELECT 
+                transaction_id, 
+                transaction_type, 
+                amount, 
+                description, 
+                transaction_date as date,
+                'TRANSACTION' as type
+            FROM transaction 
+            WHERE contact_id = $1 
+            ORDER BY transaction_date DESC
+        `, [id]);
+
+        // Fetch Sales
+        const salesQuery = await db.query(`
+            SELECT 
+                sale_id as id, 
+                'SALE' as transaction_type, 
+                total_amount as amount, 
+                'Invoice #' || sale_id as description, 
+                sale_date as date,
+                'SALE' as type
+            FROM sales 
+            WHERE contact_id = $1 
+            ORDER BY sale_date DESC
+        `, [id]);
+
+        // Merge and sort
+        const history = [...transQuery.rows, ...salesQuery.rows].sort((a, b) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        res.json(history);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
