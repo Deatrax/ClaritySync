@@ -165,12 +165,15 @@ app.get('/api/contacts', async (req, res) => {
 });
 
 app.post('/api/contacts', async (req, res) => {
-    const { name, phone, email, address, contact_type } = req.body;
+    const { name, phone, email, address, contact_type, account_balance, send_email } = req.body;
     try {
         const { rows } = await db.query(
-            "INSERT INTO contacts (name, phone, email, address, contact_type) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-            [name, phone, email, address, contact_type || 'CUSTOMER']
+            "INSERT INTO contacts (name, phone, email, address, contact_type, account_balance) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+            [name, phone, email, address, contact_type || 'CUSTOMER', account_balance || 0]
         );
+
+        // TODO: Implement email sending logic if (send_email) is true
+
         res.status(201).json(rows[0]);
     } catch (err) {
         console.error(err);
