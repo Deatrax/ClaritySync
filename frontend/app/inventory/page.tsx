@@ -74,10 +74,16 @@ export default function InventoryPage() {
       const res = await fetch('http://localhost:5000/api/products');
       if (res.ok) {
         const data = await res.json();
+        console.log('Products fetched:', data);
         setProducts(data);
+      } else {
+        const error = await res.json();
+        console.error("Failed to fetch products:", error);
+        setMessage({ type: 'error', text: 'Failed to load products' });
       }
     } catch (error) {
       console.error("Failed to fetch products", error);
+      setMessage({ type: 'error', text: 'Failed to connect to server' });
     }
   };
 
@@ -110,16 +116,16 @@ export default function InventoryPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/inventory', {
+      const res = await fetch('http://localhost:5000/api/inventory/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...stockForm,
           product_id: parseInt(stockForm.product_id),
           supplier_id: parseInt(stockForm.supplier_id) || null,
           quantity: parseInt(stockForm.quantity),
           purchase_price: parseFloat(stockForm.purchase_price),
           selling_price: parseFloat(stockForm.selling_price),
+          serial_number: stockForm.serial_number || null,
           account_id: parseInt(stockForm.account_id)
         })
       });
@@ -149,8 +155,8 @@ export default function InventoryPage() {
   };
 
   const filteredProducts = products.filter(p => 
-    p.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.brand.toLowerCase().includes(searchTerm.toLowerCase())
+    p.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.brand?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredInventory = inventory.filter(i => 
