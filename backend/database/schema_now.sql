@@ -4,22 +4,13 @@
 CREATE TABLE public.banking_account (
   account_id integer NOT NULL DEFAULT nextval('banking_account_account_id_seq'::regclass),
   account_name character varying NOT NULL,
-  account_type USER-DEFINED NOT NULL, -- 'BANK', 'MOBILE_MONEY', 'CASH'
+  account_type USER-DEFINED NOT NULL,
   account_number character varying,
+  current_balance numeric DEFAULT 0.00,
   bank_name character varying,
   branch_name character varying,
   swift_code character varying,
-  current_balance numeric DEFAULT 0.00,
-  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT banking_account_pkey PRIMARY KEY (account_id)
-);
-CREATE TABLE public.transaction_category (
-  category_id integer NOT NULL DEFAULT nextval('transaction_category_category_id_seq'::regclass),
-  name character varying NOT NULL,
-  type character varying NOT NULL CHECK (type IN ('INCOME', 'EXPENSE')),
-  is_system_default boolean DEFAULT false,
-  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT transaction_category_pkey PRIMARY KEY (category_id)
 );
 CREATE TABLE public.category (
   category_id integer NOT NULL DEFAULT nextval('category_category_id_seq'::regclass),
@@ -46,6 +37,19 @@ CREATE TABLE public.contacts (
   address text,
   account_balance numeric DEFAULT 0.00,
   CONSTRAINT contacts_pkey PRIMARY KEY (contact_id)
+);
+CREATE TABLE public.employee (
+  employee_id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name character varying NOT NULL,
+  role character varying NOT NULL,
+  designation character varying,
+  phone character varying,
+  email character varying UNIQUE,
+  basic_salary numeric NOT NULL,
+  join_date date NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT employee_pkey PRIMARY KEY (employee_id)
 );
 CREATE TABLE public.inventory (
   inventory_id integer NOT NULL DEFAULT nextval('inventory_inventory_id_seq'::regclass),
@@ -113,7 +117,6 @@ CREATE TABLE public.system_config (
 );
 CREATE TABLE public.transaction (
   transaction_id integer NOT NULL DEFAULT nextval('transaction_transaction_id_seq'::regclass),
-  category_id integer, 
   transaction_type USER-DEFINED NOT NULL,
   amount numeric NOT NULL,
   from_account_id integer,
@@ -121,9 +124,29 @@ CREATE TABLE public.transaction (
   contact_id integer,
   description text,
   transaction_date timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  category_id integer,
   CONSTRAINT transaction_pkey PRIMARY KEY (transaction_id),
-  CONSTRAINT transaction_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.transaction_category(category_id),
   CONSTRAINT transaction_from_account_id_fkey FOREIGN KEY (from_account_id) REFERENCES public.banking_account(account_id),
   CONSTRAINT transaction_to_account_id_fkey FOREIGN KEY (to_account_id) REFERENCES public.banking_account(account_id),
-  CONSTRAINT transaction_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(contact_id)
+  CONSTRAINT transaction_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(contact_id),
+  CONSTRAINT transaction_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.transaction_category(category_id)
+);
+CREATE TABLE public.transaction_category (
+  category_id integer NOT NULL DEFAULT nextval('transaction_category_category_id_seq'::regclass),
+  name character varying NOT NULL,
+  type character varying CHECK (type::text = ANY (ARRAY['INCOME'::character varying, 'EXPENSE'::character varying]::text[])),
+  is_system_default boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT transaction_category_pkey PRIMARY KEY (category_id)
+);
+CREATE TABLE public.user_account (
+  user_id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  employee_id integer NOT NULL UNIQUE,
+  email character varying NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  is_active boolean DEFAULT true,
+  last_login timestamp without time zone,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT user_account_pkey PRIMARY KEY (user_id),
+  CONSTRAINT fk_user_employee FOREIGN KEY (employee_id) REFERENCES public.employee(employee_id)
 );
