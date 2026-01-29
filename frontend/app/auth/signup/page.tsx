@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, Eye, EyeOff, UserPlus } from 'lucide-react';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface Employee {
   employee_id: number;
@@ -14,6 +15,7 @@ interface Employee {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -86,9 +88,8 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Store token in localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Use AuthContext to login (updates state and localStorage)
+        login(data.token, data.user);
         
         setMessage({ type: 'success', text: 'Account created successfully! Redirecting...' });
         

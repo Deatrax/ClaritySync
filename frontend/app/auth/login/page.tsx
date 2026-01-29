@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, Eye, EyeOff, LogIn } from 'lucide-react';
+import { useAuth } from '@/app/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,6 +24,8 @@ export default function LoginPage() {
     });
   };
 
+  const { login } = useAuth();
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -38,9 +41,8 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Store token in localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Use AuthContext to login (updates state and localStorage)
+        login(data.token, data.user);
         
         setMessage({ type: 'success', text: 'Login successful! Redirecting...' });
         
