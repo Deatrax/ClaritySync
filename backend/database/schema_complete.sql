@@ -202,3 +202,64 @@ INSERT INTO category_attribute (category_id, attribute_name, data_type, is_requi
 SELECT c.category_id, 'Material', 'VARCHAR', false
 FROM category c WHERE c.category_name = 'Clothing'
 ON CONFLICT DO NOTHING;
+
+-- ==========================================
+-- TRIGGERS (Auto-update Inventory & Transactions)
+-- ==========================================
+
+-- Function to handle sale completion
+CREATE OR REPLACE FUNCTION fn_after_sale_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 1. Update inventory quantities based on sale_item records
+    UPDATE inventory
+    SET quantity = quantity - si.quantity,
+        status = CASE 
+            WHEN (inventory.quantity - si.quantity) <= 0 THEN 'SOLD'
+            ELSE 'IN_STOCK'
+        END
+    FROM sale_item si
+    WHERE si.sale_id = NEW.sale_id
+    AND inventory.inventory_id = si.inventory_id;
+
+    -- 2. Auto-create transaction record if payment was made
+    IF NEW.payment_method IN ('CASH', 'BANK') THEN
+        INSERT INTO transaction (
+            transaction_type,
+            amount,
+            to_account_id,
+            contact_id,
+            description,
+            transaction_date
+        ) VALUES (
+            'SALE',
+            NEW.total_amount,
+            CASE WHEN NEW.payment_method = 'CASH' THEN 1 ELSE 2 END,
+            NEW.contact_id,
+            'Sale #' || NEW.sale_id,
+            NEW.sale_date
+        );
+
+        -- 3. Update banking account balance
+        UPDATE banking_account
+        SET current_balance = current_balance + NEW.total_amount
+        WHERE account_id = CASE WHEN NEW.payment_method = 'CASH' THEN 1 ELSE 2 END;
+    END IF;
+
+    -- 4. Update customer dues if payment method is 'DUE'
+    IF NEW.payment_method = 'DUE' AND NEW.contact_id IS NOT NULL THEN
+        UPDATE contacts
+        SET account_balance = account_balance + NEW.total_amount
+        WHERE contact_id = NEW.contact_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to execute after sale insert
+DROP TRIGGER IF EXISTS trg_AfterSaleInsert ON sales;
+CREATE TRIGGER trg_AfterSaleInsert
+AFTER INSERT ON sales
+FOR EACH ROW
+EXECUTE FUNCTION fn_after_sale_insert();
