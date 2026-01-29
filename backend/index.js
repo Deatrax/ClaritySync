@@ -43,12 +43,53 @@ app.post('/api/auth/signup', async (req, res) => {
 
     try {
         // Validation
-        if (!email || !password || !employee_id) {
-            return res.status(400).json({ error: 'Email, password, and employee profile are required' });
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
         }
 
         if (password.length < 6) {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        let targetEmployeeId = employee_id;
+
+        // Special handling for first-time setup (if no employee_id provided)
+        if (!targetEmployeeId) {
+            // Check if any users exist
+            const { count, error: countError } = await supabase
+                .from('user_account')
+                .select('*', { count: 'exact', head: true });
+
+            if (countError) throw countError;
+
+            // If no users exist, this is the First Run. Create a default Admin Employee.
+            if (count === 0) {
+                console.log('First user signup detected. Creating default Administrator employee...');
+
+                const { data: newAdmin, error: adminError } = await supabase
+                    .from('employee')
+                    .insert([{
+                        name: 'Administrator',
+                        role: 'Admin',
+                        designation: 'System Admin',
+                        email: email, // Use the signup email for the employee record too
+                        basic_salary: 0,
+                        join_date: new Date().toISOString().split('T')[0], // Today's date YYYY-MM-DD
+                        is_active: true
+                    }])
+                    .select('employee_id')
+                    .single();
+
+                if (adminError) {
+                    console.error('Failed to create default admin:', adminError);
+                    return res.status(500).json({ error: 'Failed to create default admin profile' });
+                }
+
+                targetEmployeeId = newAdmin.employee_id;
+            } else {
+                // Not the first user, so employee profile is mandatory
+                return res.status(400).json({ error: 'Employee profile is required' });
+            }
         }
 
         // Check if email already exists
@@ -66,7 +107,7 @@ app.post('/api/auth/signup', async (req, res) => {
         const { data: existingEmployeeUser } = await supabase
             .from('user_account')
             .select('user_id')
-            .eq('employee_id', parseInt(employee_id))
+            .eq('employee_id', parseInt(targetEmployeeId))
             .limit(1);
 
         if (existingEmployeeUser && existingEmployeeUser.length > 0) {
@@ -82,7 +123,7 @@ app.post('/api/auth/signup', async (req, res) => {
             .insert([{
                 email,
                 password_hash: passwordHash,
-                employee_id: parseInt(employee_id),
+                employee_id: parseInt(targetEmployeeId),
                 is_active: true
             }])
             .select('user_id, email, employee_id')
