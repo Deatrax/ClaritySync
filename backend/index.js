@@ -917,42 +917,30 @@ app.post('/api/sales', async (req, res) => {
         }
 
         // 4. Record transaction (if not walk-in and payment method is cash/bank)
+        // 4. Record transaction (if not walk-in and payment method is cash/bank)
         if (payment_method !== 'due') {
             // Get account
-            // If account_id is provided (e.g. from frontend bank selection), use it.
-            // Otherwise default: Cash -> 1, Bank -> 2 (legacy fallback)
-            let accountId = req.body.account_id;
+            // Use the targetAccountId determined at the top (Employee Cash Account or Selected Bank Account)
+            let accountId = targetAccountId;
 
+            // Fallback for safety (though logic above ensures it's set for Cash, or passed for Bank)
             if (!accountId) {
+                // If standard fallback is needed
                 accountId = payment_method === 'cash' ? 1 : 2;
             }
 
-            const { data: account } = await supabase
-                .from('banking_account')
-                .select('current_balance')
-                .eq('account_id', accountId)
-                .single();
-
-            if (account) {
-                const newBalance = (parseFloat(account.current_balance) || 0) + parseFloat(total);
-
-                await supabase
-                    .from('banking_account')
-                    .update({ current_balance: newBalance })
-                    .eq('account_id', accountId);
-
-                // Log transaction
-                await supabase
-                    .from('transaction')
-                    .insert([{
-                        transaction_type: 'SALE',
-                        amount: total,
-                        to_account_id: accountId,
-                        contact_id: contact_id || null,
-                        description: `Sale #${sale.sale_id}`,
-                        transaction_date: new Date().toISOString()
-                    }]);
-            }
+            // Record transaction
+            // Trigger 'trg_auto_update_balance' will handle the balance update if transaction_type is supported
+            await supabase
+                .from('transaction')
+                .insert([{
+                    transaction_type: 'SALE',
+                    amount: total,
+                    to_account_id: accountId,
+                    contact_id: contact_id || null,
+                    description: `Sale #${sale.sale_id}`,
+                    transaction_date: new Date().toISOString()
+                }]);
         } else if (payment_method === 'due' && contact_id) {
             // Update customer's due balance
             const { data: contact } = await supabase
