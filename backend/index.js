@@ -822,7 +822,7 @@ app.post('/api/sales', async (req, res) => {
         const receiptToken = `RECEIPT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         // Helper: Get or Create Employee Cash Account if payment is CASH
-        let targetAccountId = req.body.account_id;
+        let targetAccountId = req.body.account_id ? parseInt(req.body.account_id) : null;
 
         if (payment_method === 'cash') {
             if (employee_id) {
@@ -909,7 +909,7 @@ app.post('/api/sales', async (req, res) => {
                 .from('inventory')
                 .update({
                     quantity: newQuantity,
-                    status: newQuantity === 0 ? 'SOLD' : 'IN_STOCK'
+                    status: newQuantity <= 0 ? 'SOLD' : 'IN_STOCK'
                 })
                 .eq('inventory_id', item.inventory_id);
 
