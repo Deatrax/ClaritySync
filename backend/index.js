@@ -672,8 +672,14 @@ app.post('/api/sales', async (req, res) => {
 
         // 4. Record transaction (if not walk-in and payment method is cash/bank)
         if (payment_method !== 'due') {
-            // Get account (assuming account_id 1 for now - can be parameterized)
-            const accountId = payment_method === 'cash' ? 1 : 2;
+            // Get account
+            // If account_id is provided (e.g. from frontend bank selection), use it.
+            // Otherwise default: Cash -> 1, Bank -> 2 (legacy fallback)
+            let accountId = req.body.account_id;
+
+            if (!accountId) {
+                accountId = payment_method === 'cash' ? 1 : 2;
+            }
 
             const { data: account } = await supabase
                 .from('banking_account')
@@ -682,7 +688,7 @@ app.post('/api/sales', async (req, res) => {
                 .single();
 
             if (account) {
-                const newBalance = (account.current_balance || 0) + total;
+                const newBalance = (parseFloat(account.current_balance) || 0) + parseFloat(total);
 
                 await supabase
                     .from('banking_account')

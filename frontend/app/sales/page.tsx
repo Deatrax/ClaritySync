@@ -48,6 +48,14 @@ interface Customer {
   phone: string;
   email: string;
   account_balance: number;
+  contact_type: string;
+}
+
+interface Account {
+    account_id: number;
+    account_name: string;
+    account_type: string;
+    current_balance: string;
 }
 
 export default function SalesPage() {
@@ -59,6 +67,8 @@ export default function SalesPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   // Form states
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
@@ -74,6 +84,7 @@ export default function SalesPage() {
   useEffect(() => {
     fetchInventory();
     fetchCustomers();
+    fetchAccounts();
   }, []);
 
   // Filter customers based on search
@@ -82,8 +93,9 @@ export default function SalesPage() {
       setFilteredCustomers([]);
     } else {
       const filtered = customers.filter(c =>
-        c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        c.phone.includes(customerSearch)
+        (c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+        c.phone.includes(customerSearch)) && 
+        (c.contact_type === 'CUSTOMER' || c.contact_type === 'BOTH')
       );
       setFilteredCustomers(filtered);
     }
@@ -110,6 +122,21 @@ export default function SalesPage() {
       }
     } catch (error) {
       console.error('Failed to fetch customers', error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/accounts');
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data);
+        if (data.length > 0) {
+            setSelectedAccountId(data[0].account_id.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch accounts', error);
     }
   };
 
@@ -190,7 +217,8 @@ export default function SalesPage() {
         discount,
         total,
         payment_method: paymentMethod,
-        payment_status: paymentMethod === 'due' ? 'DUE' : 'PAID'
+        payment_status: paymentMethod === 'due' ? 'DUE' : 'PAID',
+        account_id: paymentMethod === 'bank' ? selectedAccountId : null
       };
 
       const res = await fetch('http://localhost:5000/api/sales', {
@@ -590,6 +618,24 @@ export default function SalesPage() {
                 </label>
               </div>
             </div>
+
+            {/* Bank Accounts Dropdown */}
+            {paymentMethod === 'bank' && (
+                <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-900">Select Bank Account</label>
+                    <select
+                        value={selectedAccountId}
+                        onChange={(e) => setSelectedAccountId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    >
+                        {accounts.map(acc => (
+                            <option key={acc.account_id} value={acc.account_id}>
+                                {acc.account_name} (Balance: TK {acc.current_balance})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             {/* Warning: Due only for registered customers */}
             {customerType === 'walk-in' && paymentMethod === 'due' && (
