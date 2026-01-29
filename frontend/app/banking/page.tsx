@@ -21,7 +21,7 @@ interface BankAccount {
 
 interface Transaction {
   transaction_id: number;
-  transaction_type: 'INCOME' | 'EXPENSE';
+  transaction_type: string;
   amount: number;
   category_name: string;
   account_name: string;
@@ -60,7 +60,7 @@ export default function BankingPage() {
         
         let income = 0, expense = 0;
         data.forEach((t: Transaction) => {
-          if (t.transaction_type === 'INCOME') {
+          if (['INCOME', 'RECEIVE', 'SALE', 'INVESTMENT', 'DEPOSIT'].includes(t.transaction_type)) {
             income += t.amount;
           } else {
             expense += t.amount;
@@ -73,6 +73,8 @@ export default function BankingPage() {
       console.error('Failed to fetch data', error);
     }
   };
+
+  const isMoneyIn = (type: string) => ['INCOME', 'RECEIVE', 'SALE', 'INVESTMENT', 'DEPOSIT'].includes(type);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,7 +122,7 @@ export default function BankingPage() {
           {/* Total Income */}
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-600">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-gray-600 text-sm">Total Income</p>
+              <p className="text-gray-600 text-sm">Total Inflow</p>
               <TrendingUp className="w-4 h-4 text-green-600" />
             </div>
             <p className="text-2xl font-bold text-green-600">
@@ -131,7 +133,7 @@ export default function BankingPage() {
           {/* Total Expense */}
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-600">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-gray-600 text-sm">Total Expense</p>
+              <p className="text-gray-600 text-sm">Total Outflow</p>
               <TrendingDown className="w-4 h-4 text-red-600" />
             </div>
             <p className="text-2xl font-bold text-red-600">
@@ -142,7 +144,7 @@ export default function BankingPage() {
           {/* Net Profit */}
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-600">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-gray-600 text-sm">Net Profit</p>
+              <p className="text-gray-600 text-sm">Net Cash Flow</p>
               <DollarSign className="w-4 h-4 text-purple-600" />
             </div>
             <p className={`text-2xl font-bold ${
@@ -243,7 +245,7 @@ export default function BankingPage() {
                           <td className="py-3 px-3 text-gray-900">{transaction.category_name}</td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              transaction.transaction_type === 'INCOME'
+                              isMoneyIn(transaction.transaction_type)
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
                             }`}>
@@ -251,11 +253,11 @@ export default function BankingPage() {
                             </span>
                           </td>
                           <td className={`py-3 px-3 text-right font-semibold ${
-                            transaction.transaction_type === 'INCOME'
+                            isMoneyIn(transaction.transaction_type)
                               ? 'text-green-600'
                               : 'text-red-600'
                           }`}>
-                            {transaction.transaction_type === 'INCOME' ? '+' : '-'}
+                            {isMoneyIn(transaction.transaction_type) ? '+' : '-'}
                             TK {transaction.amount.toFixed(2)}
                           </td>
                         </tr>

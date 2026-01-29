@@ -1364,7 +1364,7 @@ app.get('/api/transactions', async (req, res) => {
             transaction_date: t.transaction_date,
             category_id: t.category_id,
             category_name: t.transaction_category?.name || 'Uncategorized',
-            account_name: t.transaction_type === 'INCOME'
+            account_name: ['INCOME', 'RECEIVE', 'SALE', 'INVESTMENT', 'DEPOSIT'].includes(t.transaction_type)
                 ? t.to_account?.account_name
                 : t.from_account?.account_name
             // Note: .single() isn't used in select, so to_account might be an object or array depending on PostgREST version/settings,
