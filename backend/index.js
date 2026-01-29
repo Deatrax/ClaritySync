@@ -1,19 +1,196 @@
 const express = require('express');
 const cors = require('cors');
 const supabase = require('./db');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 app.use(cors());
 app.use(express.json());
+
+// Middleware: Verify JWT Token
+const verifyToken = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+};
 
 // Routes
 
 // 0. Health Check
 app.get('/api/health', async (req, res) => {
     res.json({ status: 'ok', message: 'Backend is running' });
+});
+
+// ===== AUTH ROUTES =====
+
+// POST /api/auth/signup - Register a new user
+app.post('/api/auth/signup', async (req, res) => {
+    const { email, password, employee_id } = req.body;
+
+    try {
+        // Validation
+        if (!email || !password || !employee_id) {
+            return res.status(400).json({ error: 'Email, password, and employee profile are required' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        // Check if email already exists
+        const { data: existingUser } = await supabase
+            .from('user_account')
+            .select('user_id')
+            .eq('email', email)
+            .limit(1);
+
+        if (existingUser && existingUser.length > 0) {
+            return res.status(400).json({ error: 'Email already registered' });
+        }
+
+        // Check if employee_id already has a user account
+        const { data: existingEmployeeUser } = await supabase
+            .from('user_account')
+            .select('user_id')
+            .eq('employee_id', parseInt(employee_id))
+            .limit(1);
+
+        if (existingEmployeeUser && existingEmployeeUser.length > 0) {
+            return res.status(400).json({ error: 'This employee profile already has a user account' });
+        }
+
+        // Hash password
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // Create user account
+        const { data: newUser, error } = await supabase
+            .from('user_account')
+            .insert([{
+                email,
+                password_hash: passwordHash,
+                employee_id: parseInt(employee_id),
+                is_active: true
+            }])
+            .select('user_id, email, employee_id')
+            .single();
+
+        if (error) throw error;
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { user_id: newUser.user_id, email: newUser.email, employee_id: newUser.employee_id },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.status(201).json({
+            message: 'Account created successfully',
+            token,
+            user: newUser
+        });
+    } catch (err) {
+        console.error('Signup error:', err);
+        res.status(500).json({ error: 'Signup failed', details: err.message });
+    }
+});
+
+// POST /api/auth/login - Login user
+app.post('/api/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        // Find user by email
+        const { data: user } = await supabase
+            .from('user_account')
+            .select('user_id, email, password_hash, is_active, employee_id')
+            .eq('email', email)
+            .single();
+
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        if (!user.is_active) {
+            return res.status(401).json({ error: 'User account is inactive' });
+        }
+
+        // Verify password
+        const validPassword = await bcrypt.compare(password, user.password_hash);
+
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Update last_login
+        await supabase
+            .from('user_account')
+            .update({ last_login: new Date().toISOString() })
+            .eq('user_id', user.user_id);
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { user_id: user.user_id, email: user.email, employee_id: user.employee_id },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({
+            message: 'Login successful',
+            token,
+            user: {
+                user_id: user.user_id,
+                email: user.email,
+                employee_id: user.employee_id
+            }
+        });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ error: 'Login failed', details: err.message });
+    }
+});
+
+// POST /api/auth/logout - Logout (frontend removes token)
+app.post('/api/auth/logout', (req, res) => {
+    // Token is removed on frontend
+    res.json({ message: 'Logged out successfully' });
+});
+
+// GET /api/auth/profile - Get current user profile (protected route)
+app.get('/api/auth/profile', verifyToken, async (req, res) => {
+    try {
+        const { data: user } = await supabase
+            .from('user_account')
+            .select('user_id, email, employee_id, is_active')
+            .eq('user_id', req.user.user_id)
+            .single();
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json(user);
+    } catch (err) {
+        console.error('Profile error:', err);
+        res.status(500).json({ error: 'Failed to fetch profile' });
+    }
 });
 
 // 0.5 Setup Database Tables
@@ -1317,6 +1494,24 @@ app.post('/api/transactions', async (req, res) => {
     }
 });
 
+
+// ===== EMPLOYEES ENDPOINT (for signup form) =====
+app.get('/api/employees', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('employee')
+            .select('employee_id, name, email, role')
+            .eq('is_active', true)
+            .order('name', { ascending: true });
+
+        if (error) throw error;
+
+        res.json(data || []);
+    } catch (err) {
+        console.error('Failed to fetch employees:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

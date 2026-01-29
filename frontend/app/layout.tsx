@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "./context/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,6 +28,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900 font-sans`}
       >
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+
         <div className="flex h-screen overflow-hidden">
              {/* We need to import Sidebar dynamically or ensure it is a client component, 
                  but RootLayout is server side. Components inside can be client. 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Package, 
   ShoppingCart, 
@@ -10,9 +11,12 @@ import {
   Search, 
   TrendingUp, 
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Settings,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/app/context/AuthContext';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 interface DashboardStats {
   totalProducts: number;
@@ -20,9 +24,16 @@ interface DashboardStats {
   totalBalance: number;
 }
 
-export default function Dashboard() {
+function DashboardContent() {
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/auth/login');
+  };
 
   useEffect(() => {
     async function fetchStats() {
@@ -181,5 +192,13 @@ function ActionButton({ href, title, subtitle, icon, color }: { href: string, ti
         <p className="text-white/80 text-xs">{subtitle}</p>
       </div>
     </Link>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }
