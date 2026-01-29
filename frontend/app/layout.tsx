@@ -18,6 +18,7 @@ export const metadata: Metadata = {
   description: "Modern Business Management System",
 };
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,18 +30,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900 font-sans`}
       >
         <AuthProvider>
-          {children}
+          <div className="flex h-screen overflow-hidden">
+               {/* We need to import Sidebar dynamically or ensure it is a client component, 
+                   but RootLayout is server side. Components inside can be client. 
+                   Since Sidebar uses 'usePathname', it is client. */}
+               <SidebarWrapper /> 
+               <main className="flex-1 overflow-auto">
+                  {children}
+               </main>
+          </div>
         </AuthProvider>
-
-        <div className="flex h-screen overflow-hidden">
-             {/* We need to import Sidebar dynamically or ensure it is a client component, 
-                 but RootLayout is server side. Components inside can be client. 
-                 Since Sidebar uses 'usePathname', it is client. */}
-             <SidebarWrapper /> 
-             <main className="flex-1 overflow-auto">
-                {children}
-             </main>
-        </div>
       </body>
     </html>
   );

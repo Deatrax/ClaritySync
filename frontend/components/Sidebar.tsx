@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
@@ -12,13 +13,22 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronRight,
-  ArrowRightLeft
+  ArrowRightLeft,
+  LogOut
 } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/app/context/AuthContext';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/auth/login');
+  };
 
   return (
     <aside className="w-64 bg-slate-900 text-white border-r border-slate-800 hidden md:flex flex-col h-screen sticky top-0">
@@ -67,14 +77,23 @@ export default function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold">
-              AD
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">
+                {user?.email?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{user?.email || 'User'}</p>
+                <p className="text-xs text-slate-500 truncate">ID: {user?.employee_id || 'N/A'}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium">Admin User</p>
-              <p className="text-xs text-slate-500">Manager</p>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </aside>
@@ -96,3 +115,4 @@ function NavItem({ href, icon, label, active = false, subItem = false }: { href:
     </Link>
   );
 }
+
