@@ -664,24 +664,10 @@ app.get('/api/inventory', async (req, res) => {
 app.post('/api/inventory/add', async (req, res) => {
     const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_number, account_id } = req.body;
     try {
-        // Step 1: Add inventory item
-        const { data: inventoryData, error: invError } = await supabase.from('inventory').insert([
-            {
-                product_id,
-                supplier_id,
-                quantity,
-                purchase_price,
-                selling_price,
-                serial_number: serial_number || null,
-                status: 'IN_STOCK'
-            }
-        ]).select();
-
-        if (invError) throw invError;
-
-        // Step 2: Call RPC to process payment
+        // Call RPC to process payment and add stock
+        // This RPC handles both inserting into inventory AND recording the expense transaction.
         const totalCost = purchase_price * quantity;
-        const { error: rpcError } = await supabase.rpc('sp_add_stock', {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('sp_add_stock', {
             p_product_id: product_id,
             p_supplier_id: supplier_id,
             p_quantity: quantity,
@@ -693,7 +679,8 @@ app.post('/api/inventory/add', async (req, res) => {
 
         if (rpcError) throw rpcError;
 
-        res.status(201).json(inventoryData[0]);
+        // Since RPC returns void, we return a success message
+        res.status(201).json({ message: 'Stock added successfully' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error', details: err.message });
@@ -826,14 +813,55 @@ app.post('/api/sales', async (req, res) => {
         discount,
         total,
         payment_method,
-        payment_status
+        payment_status,
+        employee_id // New field for "Sold By"
     } = req.body;
 
     try {
         // Generate receipt token
         const receiptToken = `RECEIPT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // 1. Create sale record
+        // Helper: Get or Create Employee Cash Account if payment is CASH
+        let targetAccountId = req.body.account_id;
+
+        if (payment_method === 'cash') {
+            if (employee_id) {
+                // Check for existing cash account for this employee
+                const { data: existingAccounts } = await supabase
+                    .from('banking_account')
+                    .select('account_id')
+                    .eq('employee_id', employee_id)
+                    .eq('account_type', 'CASH_HAND');
+
+                if (existingAccounts && existingAccounts.length > 0) {
+                    targetAccountId = existingAccounts[0].account_id;
+                } else {
+                    // Create new cash account for employee
+                    const { data: emp } = await supabase.from('employee').select('name').eq('employee_id', employee_id).single();
+                    const empName = emp ? emp.name : 'Unknown';
+
+                    const { data: newAccount, error: accError } = await supabase
+                        .from('banking_account')
+                        .insert([{
+                            account_name: `${empName} Cash Drawer`,
+                            account_type: 'CASH_HAND',
+                            current_balance: 0,
+                            employee_id: employee_id
+                        }])
+                        .select()
+                        .single();
+
+                    if (accError) {
+                        console.error('Error creating cash account', accError);
+                        throw accError;
+                    }
+                    targetAccountId = newAccount.account_id;
+                }
+            } else {
+                targetAccountId = 1; // Fallback to default
+            }
+        }
+
         const { data: sale, error: saleError } = await supabase
             .from('sales')
             .insert([{

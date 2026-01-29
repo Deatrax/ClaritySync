@@ -58,6 +58,13 @@ interface Account {
     current_balance: string;
 }
 
+interface Employee {
+    employee_id: number;
+    name: string;
+    email: string;
+    role: string;
+}
+
 export default function SalesPage() {
   const [activeTab, setActiveTab] = useState<'new-sale' | 'search'>('new-sale');
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -69,6 +76,8 @@ export default function SalesPage() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
   // Form states
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
@@ -85,6 +94,7 @@ export default function SalesPage() {
     fetchInventory();
     fetchCustomers();
     fetchAccounts();
+    fetchEmployees();
   }, []);
 
   // Filter customers based on search
@@ -137,6 +147,22 @@ export default function SalesPage() {
       }
     } catch (error) {
       console.error('Failed to fetch accounts', error);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/employees');
+      if (res.ok) {
+        const data = await res.json();
+        setEmployees(data);
+        // Auto-select first employee if available (or logic based on logged in user later)
+        if (data.length > 0) {
+           setSelectedEmployeeId(data[0].employee_id.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch employees', error);
     }
   };
 
@@ -218,7 +244,8 @@ export default function SalesPage() {
         total,
         payment_method: paymentMethod,
         payment_status: paymentMethod === 'due' ? 'DUE' : 'PAID',
-        account_id: paymentMethod === 'bank' ? selectedAccountId : null
+        account_id: paymentMethod === 'bank' ? selectedAccountId : null,
+        employee_id: paymentMethod === 'cash' ? selectedEmployeeId : null
       };
 
       const res = await fetch('http://localhost:5000/api/sales', {
@@ -488,6 +515,24 @@ export default function SalesPage() {
           {/* Checkout Section */}
           <form onSubmit={handleCompleteSale} className="bg-white rounded-lg shadow p-4 space-y-4 mt-4">
             <h3 className="text-lg font-bold text-gray-900">Checkout</h3>
+
+            {/* Employee Selection (For Cash Tracking) */}
+            <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-900">Sold By (Employee)</label>
+                <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    required
+                >
+                    <option value="">Select Employee</option>
+                    {employees.map(emp => (
+                        <option key={emp.employee_id} value={emp.employee_id}>
+                            {emp.name} ({emp.role})
+                        </option>
+                    ))}
+                </select>
+            </div>
 
             {/* Customer Type */}
             <div className="space-y-2">
