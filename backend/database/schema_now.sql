@@ -11,7 +11,9 @@ CREATE TABLE public.banking_account (
   branch_name character varying,
   swift_code character varying,
   created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT banking_account_pkey PRIMARY KEY (account_id)
+  employee_id integer,
+  CONSTRAINT banking_account_pkey PRIMARY KEY (account_id),
+  CONSTRAINT banking_account_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employee(employee_id)
 );
 CREATE TABLE public.category (
   category_id integer NOT NULL DEFAULT nextval('category_category_id_seq'::regclass),
