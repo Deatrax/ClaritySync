@@ -934,7 +934,7 @@ app.post('/api/sales', async (req, res) => {
             await supabase
                 .from('transaction')
                 .insert([{
-                    transaction_type: 'SALE',
+                    transaction_type: 'RECEIVE',
                     amount: total,
                     to_account_id: accountId,
                     contact_id: contact_id || null,
