@@ -91,6 +91,8 @@ export default function Sidebar() {
             <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-2">
               <NavItem href="/settings/categories" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Categories" subItem active={pathname === '/settings/categories'} />
               <NavItem href="/settings/admin-users" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Administrator Users" subItem active={pathname === '/settings/admin-users'} />
+              <NavItem href="/settings/logs/system" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="System Log" subItem active={pathname === '/settings/logs/system'} />
+              <NavItem href="/settings/logs/login" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Login Logs" subItem active={pathname === '/settings/logs/login'} />
             </div>
           )}
         </div>
