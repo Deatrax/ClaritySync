@@ -72,4 +72,38 @@ const getLoginLog = async (req, res) => {
     }
 };
 
-module.exports = { getSystemLog, getLoginLog };
+// DELETE /api/settings/logs/system/:id
+const deleteSystemLog = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { error } = await supabase
+            .from('system_activity_log')
+            .delete()
+            .eq('log_id', id);
+
+        if (error) throw error;
+        res.json({ message: 'Log entry deleted successfully' });
+    } catch (err) {
+        console.error('deleteSystemLog error:', err);
+        res.status(500).json({ error: 'Failed to delete log', details: err.message });
+    }
+};
+
+// DELETE /api/settings/logs/login/:id
+const deleteLoginLog = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { error } = await supabase
+            .from('user_login_log')
+            .delete()
+            .eq('login_log_id', id);
+
+        if (error) throw error;
+        res.json({ message: 'Login log entry deleted successfully' });
+    } catch (err) {
+        console.error('deleteLoginLog error:', err);
+        res.status(500).json({ error: 'Failed to delete login log', details: err.message });
+    }
+};
+
+module.exports = { getSystemLog, getLoginLog, deleteSystemLog, deleteLoginLog };
