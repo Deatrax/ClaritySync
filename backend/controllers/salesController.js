@@ -1,4 +1,5 @@
 const supabase = require('../db');
+const { logActivity } = require('../utils/activityLogger');
 
 // Helper: get or create employee cash account
 const getOrCreateCashAccount = async (employee_id) => {
@@ -91,30 +92,40 @@ const createSale = async (req, res) => {
         // 3. Call Supabase RPC — handles sale insert, sale_item bulk-insert,
         //    inventory update, and transaction/due balance via triggers.
         const { data, error } = await supabase.rpc('sp_create_sale', {
-            p_contact_id:     contact_id || null,
-            p_total_amount:   total,
-            p_discount:       discount || 0,
+            p_contact_id: contact_id || null,
+            p_total_amount: total,
+            p_discount: discount || 0,
             p_payment_method: payment_method,
-            p_receipt_token:  receiptToken,
-            p_account_id:     targetAccountId,
-            p_sale_date:      new Date().toISOString(),
-            p_items:          items.map(item => ({
-                product_id:   item.product_id   || null,
+            p_receipt_token: receiptToken,
+            p_account_id: targetAccountId,
+            p_sale_date: new Date().toISOString(),
+            p_items: items.map(item => ({
+                product_id: item.product_id || null,
                 inventory_id: item.inventory_id || null,
-                quantity:     item.quantity,
-                unit_price:   item.unit_price,
-                subtotal:     item.subtotal
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                subtotal: item.subtotal
             }))
         });
 
         if (error) throw error;
 
+        // Log activity
+        logActivity(req, {
+            action: 'CREATE',
+            module: 'SALES',
+            targetTable: 'sales',
+            targetId: data.sale_id,
+            description: `Sold ${items.length} items for a total of ${total}`,
+            newValues: { sale_id: data.sale_id, total, items_count: items.length }
+        });
+
         res.status(201).json({
-            sale_id:              data.sale_id,
+            sale_id: data.sale_id,
             public_receipt_token: receiptToken,
-            total_amount:         total,
-            payment_method:       payment_method,
-            message:              'Sale completed successfully'
+            total_amount: total,
+            payment_method: payment_method,
+            message: 'Sale completed successfully'
         });
     } catch (err) {
         console.error('Sales error:', err);

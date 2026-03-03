@@ -1,4 +1,5 @@
 const supabase = require('../db');
+const { logActivity } = require('../utils/activityLogger');
 
 // 3. Inventory
 const getInventory = async (req, res) => {
@@ -52,6 +53,14 @@ const addStock = async (req, res) => {
         });
 
         if (rpcError) throw rpcError;
+
+        // Log activity
+        logActivity(req, {
+            action: 'ADD_STOCK',
+            module: 'INVENTORY',
+            description: `Added ${quantity} units of product ID ${product_id} at purchase price ${purchase_price}`,
+            newValues: { product_id, quantity, purchase_price, selling_price }
+        });
 
         // Since RPC returns void, we return a success message
         res.status(201).json({ message: 'Stock added successfully' });
