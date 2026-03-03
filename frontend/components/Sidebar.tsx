@@ -182,6 +182,7 @@ export default function Sidebar() {
           {isSettingsOpen && (
             <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-2">
               <NavItem href="/settings/categories" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Categories" subItem active={pathname === '/settings/categories'} />
+              <NavItem href="/settings/salary-components" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Salary Components" subItem active={pathname === '/settings/salary-components'} />
               <NavItem href="/settings/admin-users" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Administrator Users" subItem active={pathname === '/settings/admin-users'} />
             </div>
           )}

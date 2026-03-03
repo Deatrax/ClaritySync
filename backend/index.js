@@ -24,6 +24,7 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const salaryRoutes = require('./routes/salaryRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -40,6 +41,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/settings/admin-users', adminUsersRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/salary', salaryRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
