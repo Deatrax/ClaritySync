@@ -23,6 +23,7 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
 const logsRoutes = require('./routes/logsRoutes');
+const moduleRoutes = require('./routes/moduleRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -39,6 +40,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/settings/admin-users', adminUsersRoutes);
 app.use('/api/settings/logs', logsRoutes);
+app.use('/api/settings/modules', moduleRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
