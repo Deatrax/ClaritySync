@@ -22,6 +22,7 @@ const transactionCategoryRoutes = require('./routes/transactionCategoryRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -37,6 +38,7 @@ app.use('/api/banking/categories', transactionCategoryRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/settings/admin-users', adminUsersRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

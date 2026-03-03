@@ -55,15 +55,15 @@ const changeEmployeeRole = async (req, res) => {
     try {
         const { error } = await supabase.rpc('proc_change_employee_role', {
             p_acting_user_id: actingUserId,
-            p_target_emp_id:  parseInt(employeeId),
-            p_new_role:       new_role
+            p_target_emp_id: parseInt(employeeId),
+            p_new_role: new_role
         });
 
         if (error) {
             const msg = error.message || '';
             if (msg.includes('Permission denied')) return res.status(403).json({ error: msg });
-            if (msg.includes('Self-demotion'))     return res.status(400).json({ error: msg });
-            if (msg.includes('not found'))         return res.status(404).json({ error: msg });
+            if (msg.includes('Self-demotion')) return res.status(400).json({ error: msg });
+            if (msg.includes('not found')) return res.status(404).json({ error: msg });
             throw error;
         }
 
@@ -90,13 +90,13 @@ const toggleUserAccount = async (req, res) => {
         const { error } = await supabase.rpc('proc_toggle_user_account', {
             p_acting_user_id: actingUserId,
             p_target_user_id: parseInt(userId),
-            p_set_active:     is_active
+            p_set_active: is_active
         });
 
         if (error) {
             const msg = error.message || '';
-            if (msg.includes('Permission denied'))     return res.status(403).json({ error: msg });
-            if (msg.includes('own account'))           return res.status(400).json({ error: msg });
+            if (msg.includes('Permission denied')) return res.status(403).json({ error: msg });
+            if (msg.includes('own account')) return res.status(400).json({ error: msg });
             throw error;
         }
 
@@ -166,6 +166,14 @@ const createUserAccount = async (req, res) => {
             .single();
 
         if (insertError) throw insertError;
+
+        // Send in-app notification to the new user with their credentials
+        await supabase.from('notifications').insert([{
+            user_id: newUser.user_id,
+            title: 'Your account has been created',
+            message: `Welcome, ${employee.name}! Your login credentials are:\n\nUsername (Email): ${email}\nPassword: ${password}\n\nPlease keep this information safe and consider changing your password after your first login.`,
+            is_read: false
+        }]);
 
         res.status(201).json({
             message: `Account created for ${employee.name}`,
