@@ -1,51 +1,143 @@
 const supabase = require('../db');
 
-// 4. Employees & Signup Helper
+// GET /api/employees?search=&active_only=true
 const getAllEmployees = async (req, res) => {
-    // Merging logic from both previous endpoints:
-    // If query param ?for=signup is present, or just default behavior,
-    // we can return all or filtered.
-    // The original code had two handlers for GET /api/employees.
-    // One returned all (*) ordered by created_at.
-    // The other returned (id, name, email, role) where is_active=true ordered by name.
-
-    const { active_only } = req.query;
+    const { active_only, search } = req.query;
 
     try {
-        let query = supabase.from('employee').select('*');
+        let query = supabase
+            .from('employee')
+            .select('employee_id, name, designation, phone, email, basic_salary, join_date, is_active, role, created_at');
 
         if (active_only === 'true') {
-            query = query.eq('is_active', true).order('name', { ascending: true });
-        } else {
-            query = query.order('created_at', { ascending: false });
+            query = query.eq('is_active', true);
         }
 
-        const { data, error } = await query;
+        if (search) {
+            query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,designation.ilike.%${search}%`);
+        }
 
+        query = query.order('created_at', { ascending: false });
+
+        const { data, error } = await query;
         if (error) throw error;
+
         res.json(data);
     } catch (err) {
-        console.error(err);
+        console.error('getAllEmployees error:', err);
         res.status(500).json({ error: 'Server error', details: err.message });
     }
 };
 
-const createEmployee = async (req, res) => {
-    const { name, designation, salary } = req.body;
+// GET /api/employees/:id
+const getEmployeeById = async (req, res) => {
+    const { id } = req.params;
     try {
-        const { data, error } = await supabase.from('employee').insert([
-            { name, designation, salary }
-        ]).select();
+        const { data, error } = await supabase
+            .from('employee')
+            .select('*')
+            .eq('employee_id', id)
+            .single();
 
         if (error) throw error;
-        res.status(201).json(data[0]);
+        if (!data) return res.status(404).json({ error: 'Employee not found' });
+
+        res.json(data);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
+        console.error('getEmployeeById error:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+};
+
+// POST /api/employees
+const createEmployee = async (req, res) => {
+    const { name, designation, phone, email, basic_salary, join_date, is_active, role } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Name is required' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('employee')
+            .insert([{
+                name,
+                designation: designation || null,
+                phone: phone || null,
+                email: email || null,
+                basic_salary: basic_salary ? parseFloat(basic_salary) : null,
+                join_date: join_date || null,
+                is_active: is_active !== undefined ? is_active : true,
+                role: role || 'EMPLOYEE'
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.status(201).json(data);
+    } catch (err) {
+        console.error('createEmployee error:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+};
+
+// PUT /api/employees/:id
+const updateEmployee = async (req, res) => {
+    const { id } = req.params;
+    const { name, designation, phone, email, basic_salary, join_date, is_active, role } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Name is required' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('employee')
+            .update({
+                name,
+                designation: designation || null,
+                phone: phone || null,
+                email: email || null,
+                basic_salary: basic_salary ? parseFloat(basic_salary) : null,
+                join_date: join_date || null,
+                is_active: is_active !== undefined ? is_active : true,
+                role: role || 'EMPLOYEE'
+            })
+            .eq('employee_id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        if (!data) return res.status(404).json({ error: 'Employee not found' });
+
+        res.json(data);
+    } catch (err) {
+        console.error('updateEmployee error:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
+    }
+};
+
+// DELETE /api/employees/:id
+const deleteEmployee = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { error } = await supabase
+            .from('employee')
+            .delete()
+            .eq('employee_id', id);
+
+        if (error) throw error;
+        res.json({ message: 'Employee deleted successfully' });
+    } catch (err) {
+        console.error('deleteEmployee error:', err);
+        res.status(500).json({ error: 'Server error', details: err.message });
     }
 };
 
 module.exports = {
     getAllEmployees,
-    createEmployee
+    getEmployeeById,
+    createEmployee,
+    updateEmployee,
+    deleteEmployee
 };

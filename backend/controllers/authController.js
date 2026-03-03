@@ -94,9 +94,20 @@ const login = async (req, res) => {
             .update({ last_login: new Date().toISOString() })
             .eq('user_id', user.user_id);
 
+        // Fetch the employee's role via explicit query (more reliable than FK join)
+        let role = 'EMPLOYEE';
+        if (user.employee_id) {
+            const { data: empData } = await supabase
+                .from('employee')
+                .select('role')
+                .eq('employee_id', user.employee_id)
+                .single();
+            if (empData?.role) role = empData.role;
+        }
+
         // Generate JWT token
         const token = jwt.sign(
-            { user_id: user.user_id, email: user.email, employee_id: user.employee_id },
+            { user_id: user.user_id, email: user.email, employee_id: user.employee_id, role },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -107,7 +118,8 @@ const login = async (req, res) => {
             user: {
                 user_id: user.user_id,
                 email: user.email,
-                employee_id: user.employee_id
+                employee_id: user.employee_id,
+                role
             }
         });
     } catch (err) {
