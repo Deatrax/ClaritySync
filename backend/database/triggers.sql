@@ -1,0 +1,3 @@
+CREATE TRIGGER trg_auto_update_balance AFTER INSERT ON public.transaction FOR EACH ROW EXECUTE FUNCTION fn_update_bank_balance();
+
+CREATE TRIGGER trg_update_contact_ledger AFTER INSERT ON public.transaction FOR EACH ROW EXECUTE FUNCTION fn_update_contact_ledger();

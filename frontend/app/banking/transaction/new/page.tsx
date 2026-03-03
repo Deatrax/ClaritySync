@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { 
-  ArrowUpRight, 
+import {
+  ArrowUpRight,
   ArrowDownLeft,
   AlertCircle,
   Calendar,
@@ -26,6 +26,7 @@ interface Category {
 export default function NewTransactionPage() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]); // Added contacts state
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const [formData, setFormData] = useState({
@@ -33,6 +34,7 @@ export default function NewTransactionPage() {
     transaction_type: 'EXPENSE' as 'INCOME' | 'EXPENSE',
     account_id: '',
     category_id: '',
+    contact_id: '', // Added contact_id
     amount: '',
     description: ''
   });
@@ -43,9 +45,10 @@ export default function NewTransactionPage() {
 
   const fetchData = async () => {
     try {
-      const [accountsRes, categoriesRes] = await Promise.all([
+      const [accountsRes, categoriesRes, contactsRes] = await Promise.all([
         fetch('http://localhost:5000/api/accounts'),
-        fetch('http://localhost:5000/api/banking/categories')
+        fetch('http://localhost:5000/api/banking/categories'),
+        fetch('http://localhost:5000/api/contacts')
       ]);
 
       if (accountsRes.ok) {
@@ -55,6 +58,10 @@ export default function NewTransactionPage() {
       if (categoriesRes.ok) {
         const data = await categoriesRes.json();
         setCategories(data);
+      }
+      if (contactsRes.ok) {
+        const data = await contactsRes.json();
+        setContacts(data);
       }
     } catch (error) {
       console.error('Failed to fetch data', error);
@@ -75,7 +82,7 @@ export default function NewTransactionPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.account_id || !formData.category_id || !formData.amount) {
       setMessage({ type: 'error', text: 'Please fill all required fields' });
       return;
@@ -94,6 +101,7 @@ export default function NewTransactionPage() {
           to_account_id: formData.transaction_type === 'INCOME' ? parseInt(formData.account_id) : null,
           from_account_id: formData.transaction_type === 'EXPENSE' ? parseInt(formData.account_id) : null,
           category_id: parseInt(formData.category_id),
+          contact_id: formData.contact_id ? parseInt(formData.contact_id) : null,
           description: formData.description,
           transaction_date: formData.date
         })
@@ -106,6 +114,7 @@ export default function NewTransactionPage() {
           transaction_type: 'EXPENSE',
           account_id: '',
           category_id: '',
+          contact_id: '',
           amount: '',
           description: ''
         });
@@ -147,11 +156,10 @@ export default function NewTransactionPage() {
       <div className="flex-1 max-w-2xl mx-auto w-full p-4 md:p-8">
         {/* Message */}
         {message && (
-          <div className={`rounded-lg p-4 mb-6 flex gap-3 ${
-            message.type === 'success'
+          <div className={`rounded-lg p-4 mb-6 flex gap-3 ${message.type === 'success'
               ? 'bg-green-50 text-green-800 border border-green-200'
               : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
+            }`}>
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <p className="text-sm">{message.text}</p>
           </div>
@@ -236,6 +244,26 @@ export default function NewTransactionPage() {
               </select>
             </div>
 
+            {/* Contact (Optional) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-1">
+                Contact (Optional)
+              </label>
+              <select
+                name="contact_id"
+                value={formData.contact_id}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a contact (Customer/Supplier)</option>
+                {contacts.map(contact => (
+                  <option key={contact.contact_id} value={contact.contact_id}>
+                    {contact.name} ({contact.contact_type})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Category */}
             <div>
               <label className="block text-sm font-medium text-gray-900 mb-1">
@@ -294,11 +322,10 @@ export default function NewTransactionPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-2 rounded-lg font-medium text-white transition-colors ${
-                loading
+              className={`w-full py-2 rounded-lg font-medium text-white transition-colors ${loading
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
-              }`}
+                }`}
             >
               {loading ? 'Recording...' : 'Record Transaction'}
             </button>

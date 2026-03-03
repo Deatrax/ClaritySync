@@ -16,6 +16,7 @@ import Link from 'next/link';
 interface BankAccount {
   account_id: number;
   account_name: string;
+  account_type: string;
   bank_name: string;
   branch_name: string;
   account_number: string;
@@ -30,6 +31,7 @@ export default function AccountsPage() {
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const [formData, setFormData] = useState({
     account_name: '',
+    account_type: 'BANK',
     bank_name: '',
     branch_name: '',
     account_number: '',
@@ -52,7 +54,7 @@ export default function AccountsPage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -79,6 +81,7 @@ export default function AccountsPage() {
         setMessage({ type: 'success', text: 'Account created successfully!' });
         setFormData({
           account_name: '',
+          account_type: 'BANK',
           bank_name: '',
           branch_name: '',
           account_number: '',
@@ -100,6 +103,7 @@ export default function AccountsPage() {
   };
 
   const handleDelete = async (accountId: number) => {
+    // ... (rest of delete logic)
     if (!confirm('Are you sure you want to delete this account?')) return;
 
     try {
@@ -122,7 +126,7 @@ export default function AccountsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
+       {/* ... Header ... */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -183,6 +187,21 @@ export default function AccountsPage() {
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+                 <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Account Type *
+                  </label>
+                  <select 
+                    name="account_type"
+                    value={formData.account_type}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                        <option value="BANK">Bank Account</option>
+                        <option value="CASH">Physical Cash / Wallet</option>
+                        <option value="MOBILE_MONEY">Mobile Money</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">

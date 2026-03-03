@@ -43,11 +43,18 @@ interface InventoryItem {
   status: string;
 }
 
+interface Account {
+  account_id: number;
+  account_name: string;
+  current_balance: string;
+}
+
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'products' | 'add-product' | 'add-stock'>('inventory');
   const [products, setProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
@@ -59,7 +66,7 @@ export default function InventoryPage() {
     purchase_price: '',
     selling_price: '',
     serial_number: '',
-    account_id: '1'
+    account_id: ''
   });
 
   // Fetch data
@@ -67,6 +74,7 @@ export default function InventoryPage() {
     fetchProducts();
     fetchInventory();
     fetchCategories();
+    fetchAccounts();
   }, []);
 
   const fetchProducts = async () => {
@@ -108,6 +116,22 @@ export default function InventoryPage() {
       }
     } catch (error) {
       console.error("Failed to fetch categories", error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/accounts');
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data);
+        // Set default account if available and not yet set
+        if (data.length > 0 && !stockForm.account_id) {
+           setStockForm(prev => ({ ...prev, account_id: data[0].account_id.toString() }));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch accounts", error);
     }
   };
 
@@ -574,9 +598,14 @@ export default function InventoryPage() {
                     value={stockForm.account_id}
                     onChange={(e) => setStockForm({...stockForm, account_id: e.target.value})}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    required
                   >
-                    <option value="1">Cash Till</option>
-                    <option value="2">Bank Account</option>
+                    <option value="">Select Account</option>
+                    {accounts.map(acc => (
+                      <option key={acc.account_id} value={acc.account_id}>
+                        {acc.account_name} (TK {acc.current_balance})
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
