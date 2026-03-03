@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const employeeController = require('../controllers/employeeController');
-const verifyToken = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // Public (any authenticated user) – list & view
 router.get('/', verifyToken, employeeController.getAllEmployees);

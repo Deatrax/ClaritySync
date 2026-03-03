@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/app/context/AuthContext';
 import {
     Shield,
     UserCheck,
@@ -72,6 +74,9 @@ function formatDate(iso: string | null) {
 
 // ── Main Page ────────────────────────────────────────────────
 export default function AdminUsersPage() {
+    const { user, isLoading } = useAuth();
+    const router = useRouter();
+
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [employeesWithoutAccounts, setEmployeesWithoutAccounts] = useState<EmployeeWithoutAccount[]>([]);
     const [loading, setLoading] = useState(true);
@@ -105,7 +110,15 @@ export default function AdminUsersPage() {
         }
     };
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => {
+        if (!isLoading) {
+            if (!user || user.role !== 'ADMIN') {
+                router.push('/');
+            } else {
+                fetchData();
+            }
+        }
+    }, [user, isLoading, router]);
 
     // ── Toast ─────────────────────────────────────────────────
     const showToast = (type: 'success' | 'error', text: string) => {
@@ -215,8 +228,8 @@ export default function AdminUsersPage() {
                 {/* Toast */}
                 {toast && (
                     <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-lg text-sm font-medium transition-all ${toast.type === 'success'
-                            ? 'bg-green-50 border border-green-200 text-green-800'
-                            : 'bg-red-50 border border-red-200 text-red-800'
+                        ? 'bg-green-50 border border-green-200 text-green-800'
+                        : 'bg-red-50 border border-red-200 text-red-800'
                         }`}>
                         {toast.type === 'success'
                             ? <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
@@ -312,8 +325,8 @@ export default function AdminUsersPage() {
                                                     onClick={() => handleToggle(user.user_id, user.account_active)}
                                                     disabled={toggleLoading[user.user_id]}
                                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${user.account_active
-                                                            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                                                            : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                                        ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                                        : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
                                                         } ${toggleLoading[user.user_id] ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
                                                     title={user.account_active ? 'Click to deactivate' : 'Click to activate'}
                                                 >
