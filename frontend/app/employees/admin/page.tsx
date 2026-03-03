@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Users, Search, Plus, Pencil, Trash2, AlertTriangle, X, DollarSign } from 'lucide-react';
+import { Users, Search, Plus, Pencil, Trash2, AlertTriangle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
@@ -207,7 +207,9 @@ function AdminEmployeesContent() {
                                     {employees.map((emp) => (
                                         <tr key={emp.employee_id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <span className="font-semibold text-gray-900">{emp.name}</span>
+                                                <Link href={`/employees/${emp.employee_id}`} className="font-semibold text-indigo-700 hover:text-indigo-900 hover:underline">
+                                                    {emp.name}
+                                                </Link>
                                             </td>
                                             <td className="px-6 py-4 text-gray-500">{emp.designation ?? '—'}</td>
                                             <td className="px-6 py-4 text-gray-500">{emp.phone ?? '—'}</td>
@@ -225,13 +227,6 @@ function AdminEmployeesContent() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <Link
-                                                        href={`/employees/${emp.employee_id}/salary`}
-                                                        className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                        title="Payslip"
-                                                    >
-                                                        <DollarSign className="w-4 h-4" />
-                                                    </Link>
                                                     <Link
                                                         href={`/employees/${emp.employee_id}/edit`}
                                                         className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
