@@ -1,6 +1,43 @@
 const supabase = require('../db');
 
-// 4.5 Sales
+// Helper: get or create employee cash account
+const getOrCreateCashAccount = async (employee_id) => {
+    // Check for existing cash account
+    const { data: existingAccounts } = await supabase
+        .from('banking_account')
+        .select('account_id')
+        .eq('employee_id', employee_id)
+        .eq('account_type', 'CASH_HAND');
+
+    if (existingAccounts && existingAccounts.length > 0) {
+        return existingAccounts[0].account_id;
+    }
+
+    // Create new cash account for employee
+    const { data: emp } = await supabase
+        .from('employee')
+        .select('name')
+        .eq('employee_id', employee_id)
+        .single();
+
+    const empName = emp ? emp.name : 'Unknown';
+
+    const { data: newAccount, error: accError } = await supabase
+        .from('banking_account')
+        .insert([{
+            account_name: `${empName} Cash Drawer`,
+            account_type: 'CASH_HAND',
+            current_balance: 0,
+            employee_id: employee_id
+        }])
+        .select()
+        .single();
+
+    if (accError) throw accError;
+    return newAccount.account_id;
+};
+
+// GET /api/sales
 const getAllSales = async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -25,167 +62,59 @@ const getAllSales = async (req, res) => {
     }
 };
 
+// POST /api/sales  →  calls sp_create_sale RPC
 const createSale = async (req, res) => {
     const {
         contact_id,
-        is_walk_in,
         items,
-        subtotal,
-        tax,
         discount,
         total,
         payment_method,
-        payment_status,
-        employee_id // New field for "Sold By"
+        employee_id
     } = req.body;
 
     try {
-        // Generate receipt token
-        const receiptToken = `RECEIPT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-        // Helper: Get or Create Employee Cash Account if payment is CASH
+        // 1. Resolve target account ID (employee cash drawer or provided account)
         let targetAccountId = req.body.account_id ? parseInt(req.body.account_id) : null;
 
-        if (payment_method === 'cash') {
+        if (payment_method === 'cash' || payment_method === 'CASH') {
             if (employee_id) {
-                // Check for existing cash account for this employee
-                const { data: existingAccounts } = await supabase
-                    .from('banking_account')
-                    .select('account_id')
-                    .eq('employee_id', employee_id)
-                    .eq('account_type', 'CASH_HAND');
-
-                if (existingAccounts && existingAccounts.length > 0) {
-                    targetAccountId = existingAccounts[0].account_id;
-                } else {
-                    // Create new cash account for employee
-                    const { data: emp } = await supabase.from('employee').select('name').eq('employee_id', employee_id).single();
-                    const empName = emp ? emp.name : 'Unknown';
-
-                    const { data: newAccount, error: accError } = await supabase
-                        .from('banking_account')
-                        .insert([{
-                            account_name: `${empName} Cash Drawer`,
-                            account_type: 'CASH_HAND',
-                            current_balance: 0,
-                            employee_id: employee_id
-                        }])
-                        .select()
-                        .single();
-
-                    if (accError) {
-                        console.error('Error creating cash account', accError);
-                        throw accError;
-                    }
-                    targetAccountId = newAccount.account_id;
-                }
+                targetAccountId = await getOrCreateCashAccount(employee_id);
             } else {
-                targetAccountId = 1; // Fallback to default
+                targetAccountId = 1; // Default fallback
             }
         }
 
-        const { data: sale, error: saleError } = await supabase
-            .from('sales')
-            .insert([{
-                contact_id: contact_id || null,
-                total_amount: total,
-                discount: discount || 0,
-                payment_method: payment_method,
-                public_receipt_token: receiptToken,
-                sale_date: new Date().toISOString()
-            }])
-            .select()
-            .single();
+        // 2. Generate receipt token (stays in JS — uses Date.now + random)
+        const receiptToken = `RECEIPT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        if (saleError) throw saleError;
+        // 3. Call Supabase RPC — handles sale insert, sale_item bulk-insert,
+        //    inventory update, and transaction/due balance via triggers.
+        const { data, error } = await supabase.rpc('sp_create_sale', {
+            p_contact_id:     contact_id || null,
+            p_total_amount:   total,
+            p_discount:       discount || 0,
+            p_payment_method: payment_method,
+            p_receipt_token:  receiptToken,
+            p_account_id:     targetAccountId,
+            p_sale_date:      new Date().toISOString(),
+            p_items:          items.map(item => ({
+                product_id:   item.product_id   || null,
+                inventory_id: item.inventory_id || null,
+                quantity:     item.quantity,
+                unit_price:   item.unit_price,
+                subtotal:     item.subtotal
+            }))
+        });
 
-        // 2. Create sale items
-        const saleItems = items.map(item => ({
-            sale_id: sale.sale_id,
-            product_id: item.product_id || null,
-            inventory_id: item.inventory_id || null,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('sale_item')
-            .insert(saleItems);
-
-        if (itemsError) throw itemsError;
-
-        // 3. Update inventory quantities
-        for (const item of items) {
-            const { data: inventory, error: invError } = await supabase
-                .from('inventory')
-                .select('quantity')
-                .eq('inventory_id', item.inventory_id)
-                .single();
-
-            if (invError) throw invError;
-
-            const newQuantity = inventory.quantity - item.quantity;
-
-            const { error: updateError } = await supabase
-                .from('inventory')
-                .update({
-                    quantity: newQuantity,
-                    status: newQuantity <= 0 ? 'SOLD' : 'IN_STOCK'
-                })
-                .eq('inventory_id', item.inventory_id);
-
-            if (updateError) throw updateError;
-        }
-
-        // 4. Record transaction (if not walk-in and payment method is cash/bank)
-        if (payment_method !== 'due') {
-            // Get account
-            // Use the targetAccountId determined at the top (Employee Cash Account or Selected Bank Account)
-            let accountId = targetAccountId;
-
-            // Fallback for safety (though logic above ensures it's set for Cash, or passed for Bank)
-            if (!accountId) {
-                // If standard fallback is needed
-                accountId = payment_method === 'cash' ? 1 : 2;
-            }
-
-            // Record transaction
-            // Trigger 'trg_auto_update_balance' will handle the balance update if transaction_type is supported
-            await supabase
-                .from('transaction')
-                .insert([{
-                    transaction_type: 'RECEIVE',
-                    amount: total,
-                    to_account_id: accountId,
-                    contact_id: contact_id || null,
-                    description: `Sale #${sale.sale_id}`,
-                    transaction_date: new Date().toISOString()
-                }]);
-        } else if (payment_method === 'due' && contact_id) {
-            // Update customer's due balance
-            const { data: contact } = await supabase
-                .from('contacts')
-                .select('account_balance')
-                .eq('contact_id', contact_id)
-                .single();
-
-            if (contact) {
-                const newBalance = (contact.account_balance || 0) + total;
-
-                await supabase
-                    .from('contacts')
-                    .update({ account_balance: newBalance })
-                    .eq('contact_id', contact_id);
-            }
-        }
+        if (error) throw error;
 
         res.status(201).json({
-            sale_id: sale.sale_id,
+            sale_id:              data.sale_id,
             public_receipt_token: receiptToken,
-            total_amount: total,
-            payment_method: payment_method,
-            message: 'Sale completed successfully'
+            total_amount:         total,
+            payment_method:       payment_method,
+            message:              'Sale completed successfully'
         });
     } catch (err) {
         console.error('Sales error:', err);
@@ -193,6 +122,7 @@ const createSale = async (req, res) => {
     }
 };
 
+// GET /api/sales/:id
 const getSaleById = async (req, res) => {
     const { id } = req.params;
     try {

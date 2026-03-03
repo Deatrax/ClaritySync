@@ -1,6 +1,6 @@
 const supabase = require('../db');
 
-// 5. Contacts
+// GET /api/contacts
 const getAllContacts = async (req, res) => {
     const { search, sort } = req.query;
     try {
@@ -27,8 +27,9 @@ const getAllContacts = async (req, res) => {
     }
 };
 
+// POST /api/contacts
 const createContact = async (req, res) => {
-    const { name, phone, email, address, contact_type, account_balance, send_email } = req.body;
+    const { name, phone, email, address, contact_type, account_balance } = req.body;
     try {
         const { data, error } = await supabase.from('contacts').insert([
             {
@@ -42,9 +43,6 @@ const createContact = async (req, res) => {
         ]).select();
 
         if (error) throw error;
-
-        // TODO: Implement email sending logic if (send_email) is true
-
         res.status(201).json(data[0]);
     } catch (err) {
         console.error(err);
@@ -52,36 +50,29 @@ const createContact = async (req, res) => {
     }
 };
 
+// GET /api/contacts/:id  →  calls fn_get_contact_stats RPC
 const getContactById = async (req, res) => {
     const { id } = req.params;
     try {
-        const { data: contact, error: err1 } = await supabase.from('contacts').select('*').eq('contact_id', id).single();
+        const { data, error } = await supabase.rpc('fn_get_contact_stats', {
+            p_contact_id: parseInt(id)
+        });
 
-        if (err1 || !contact) {
-            return res.status(404).json({ error: 'Contact not found' });
+        if (error) {
+            if (error.message?.includes('CONTACT_NOT_FOUND')) {
+                return res.status(404).json({ error: 'Contact not found' });
+            }
+            throw error;
         }
 
-        // Fetch Stats
-        const { data: sales } = await supabase.from('sales').select('total_amount').eq('contact_id', id);
-        const { count: transCount } = await supabase.from('transaction').select('*', { count: 'exact', head: true }).eq('contact_id', id);
-
-        const totalSpent = sales?.reduce((sum, s) => sum + (s.total_amount || 0), 0) || 0;
-        const totalSales = sales?.length || 0;
-
-        res.json({
-            ...contact,
-            stats: {
-                totalSales,
-                totalSpent,
-                totalTransactions: transCount || 0
-            }
-        });
+        res.json(data);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
     }
 };
 
+// PUT /api/contacts/:id
 const updateContact = async (req, res) => {
     const { id } = req.params;
     const { name, phone, email, address, contact_type } = req.body;
@@ -102,48 +93,17 @@ const updateContact = async (req, res) => {
     }
 };
 
+// GET /api/contacts/:id/history  →  calls fn_get_contact_history RPC
 const getContactHistory = async (req, res) => {
     const { id } = req.params;
     try {
-        // Fetch Transactions
-        const { data: transactions, error: err1 } = await supabase.from('transaction')
-            .select('transaction_id, transaction_type, amount, description, transaction_date')
-            .eq('contact_id', id)
-            .order('transaction_date', { ascending: false });
+        const { data, error } = await supabase.rpc('fn_get_contact_history', {
+            p_contact_id: parseInt(id)
+        });
 
-        // Fetch Sales
-        const { data: sales, error: err2 } = await supabase.from('sales')
-            .select('sale_id, total_amount, sale_date')
-            .eq('contact_id', id)
-            .order('sale_date', { ascending: false });
+        if (error) throw error;
 
-        if (err1) throw err1;
-        if (err2) throw err2;
-
-        const transList = transactions?.map(t => ({
-            id: t.transaction_id,
-            type: 'TRANSACTION',
-            transaction_type: t.transaction_type,
-            amount: t.amount,
-            description: t.description,
-            date: t.transaction_date
-        })) || [];
-
-        const salesList = sales?.map(s => ({
-            id: s.sale_id,
-            type: 'SALE',
-            transaction_type: 'SALE',
-            amount: s.total_amount,
-            description: `Invoice #${s.sale_id}`,
-            date: s.sale_date
-        })) || [];
-
-        // Merge and sort
-        const history = [...transList, ...salesList].sort((a, b) =>
-            new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-
-        res.json(history);
+        res.json(data || []);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
