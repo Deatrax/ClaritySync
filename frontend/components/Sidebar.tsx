@@ -19,7 +19,8 @@ import {
   CheckCheck,
   X,
   KeyRound,
-  CircleUser
+  CircleUser,
+  Receipt
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
@@ -139,6 +140,7 @@ export default function Sidebar() {
         <NavItem href="/sales" icon={<ShoppingCart />} label="Sales (POS)" active={pathname.startsWith('/sales')} />
         <NavItem href="/contacts" icon={<Users />} label="Contacts" active={pathname.startsWith('/contacts')} />
         <NavItem href="/employees" icon={<Briefcase />} label="Employees" active={pathname.startsWith('/employees')} />
+        <NavItem href="/expenses" icon={<Receipt />} label="Expense Requests" active={pathname.startsWith('/expenses')} />
         <NavItem href="/banking" icon={<Wallet />} label="Banking" active={pathname.startsWith('/banking')} />
 
         {/* Transactions Group */}

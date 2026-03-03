@@ -1,11 +1,36 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { User, Camera, FileImage, MapPin, Save, Pencil, X, CheckCircle, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { User, Camera, FileImage, MapPin, Save, Pencil, X, CheckCircle, DollarSign, TrendingUp, TrendingDown, Receipt, Plus, Clock, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
-type Tab = 'info' | 'salary';
+type Tab = 'info' | 'salary' | 'payments';
+
+const PAYMENT_METHODS = ['Cash', 'Credit Card', 'Debit Card', 'Mobile Banking', 'Bank Transfer', 'Other'];
+
+interface ExpenseRequest {
+    request_id: number; amount: number; reason: string;
+    payment_method: string | null; invoice_url: string | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    admin_note: string | null; submitted_at: string;
+}
+
+const STATUS_CONFIG = {
+    PENDING: { label: 'Pending', Icon: Clock, cls: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+    APPROVED: { label: 'Approved', Icon: CheckCircle, cls: 'bg-green-100 text-green-700 border-green-200' },
+    REJECTED: { label: 'Rejected', Icon: XCircle, cls: 'bg-red-100 text-red-700 border-red-200' },
+};
+
+function StatusBadge({ status }: { status: 'PENDING' | 'APPROVED' | 'REJECTED' }) {
+    const cfg = STATUS_CONFIG[status];
+    const Icon = cfg.Icon;
+    return (
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.cls}`}>
+            <Icon className="w-3 h-3" />{cfg.label}
+        </span>
+    );
+}
 
 interface EmployeeProfile {
     employee_id: number; name: string; designation: string | null; phone: string | null;
@@ -190,7 +215,156 @@ function SalaryTab({ profile, token }: { profile: EmployeeProfile; token: string
     );
 }
 
-// ─── Main Profile Content ────────────────────────────────────────────────────
+// ─── Payment History Tab ─────────────────────────────────────────────────────
+function PaymentHistoryTab({ token }: { token: string }) {
+    const [requests, setRequests] = useState<ExpenseRequest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [amount, setAmount] = useState('');
+    const [reason, setReason] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [submitOk, setSubmitOk] = useState(false);
+    const invoiceRef = useRef<HTMLInputElement>(null);
+
+    const load = useCallback(async () => {
+        try {
+            const res = await fetch('/api/expenses/me', { headers: { Authorization: `Bearer ${token}` } });
+            setRequests(await res.json());
+        } catch { /* silent */ }
+        finally { setLoading(false); }
+    }, [token]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]; if (!file) return;
+        setInvoiceUrl(await fileToDataUrl(file));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!amount || parseFloat(amount) <= 0) { setFormError('Enter a valid amount'); return; }
+        if (!reason.trim()) { setFormError('Reason is required'); return; }
+        setSubmitting(true); setFormError(null);
+        try {
+            const res = await fetch('/api/expenses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ amount: parseFloat(amount), reason: reason.trim(), payment_method: paymentMethod || null, invoice_url: invoiceUrl }),
+            });
+            if (!res.ok) { const b = await res.json(); throw new Error(b.error); }
+            setShowForm(false); setAmount(''); setReason(''); setPaymentMethod(''); setInvoiceUrl(null);
+            setSubmitOk(true); setTimeout(() => setSubmitOk(false), 3500);
+            load();
+        } catch (err: unknown) { setFormError(err instanceof Error ? err.message : 'Failed to submit'); }
+        finally { setSubmitting(false); }
+    };
+
+    return (
+        <div className="space-y-5">
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">Your expense reimbursement requests and their approval status.</p>
+                {!showForm && (
+                    <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
+                        <Plus className="w-4 h-4" /> Submit Request
+                    </button>
+                )}
+            </div>
+
+            {submitOk && <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-3"><CheckCircle className="w-4 h-4" />Request submitted successfully!</div>}
+
+            {/* Submit Form */}
+            {showForm && (
+                <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 space-y-4">
+                    <div className="flex items-center justify-between mb-1">
+                        <h3 className="text-sm font-semibold text-gray-900">New Reimbursement Request</h3>
+                        <button type="button" onClick={() => { setShowForm(false); setFormError(null); }} className="p-1 text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Amount (৳) <span className="text-red-500">*</span></label>
+                            <input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)}
+                                placeholder="0.00" className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Payment Method Used</label>
+                            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="">— Select —</option>
+                                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Reason <span className="text-red-500">*</span></label>
+                        <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} placeholder="Describe the business expense…"
+                            className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                    </div>
+                    {/* Invoice Upload */}
+                    <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Invoice / Receipt (optional)</label>
+                        <div className="flex items-center gap-3">
+                            {invoiceUrl ? (
+                                <div className="relative">
+                                    <img src={invoiceUrl} alt="Invoice" className="h-20 rounded-lg border border-gray-200 object-cover" />
+                                    <button type="button" onClick={() => setInvoiceUrl(null)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center"><X className="w-2.5 h-2.5" /></button>
+                                </div>
+                            ) : (
+                                <button type="button" onClick={() => invoiceRef.current?.click()}
+                                    className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 bg-gray-50 rounded-lg text-xs text-gray-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors">
+                                    <Camera className="w-4 h-4" /> Upload invoice photo
+                                </button>
+                            )}
+                        </div>
+                        <input ref={invoiceRef} type="file" accept="image/*" className="hidden" onChange={handleInvoice} />
+                    </div>
+                    {formError && <p className="text-red-500 text-xs">{formError}</p>}
+                    <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                        <button type="button" onClick={() => { setShowForm(false); setFormError(null); }} className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">Cancel</button>
+                        <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-60">{submitting ? 'Submitting…' : 'Submit'}</button>
+                    </div>
+                </form>
+            )}
+
+            {/* Request List */}
+            {loading ? (
+                <div className="py-10 text-center text-gray-400 text-sm">Loading…</div>
+            ) : requests.length === 0 ? (
+                <div className="py-10 text-center">
+                    <Receipt className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">No requests submitted yet.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {requests.map(r => (
+                        <div key={r.request_id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div className="flex items-start justify-between px-5 py-4 gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-semibold text-gray-900 text-sm">৳{Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        {r.payment_method && <span className="text-xs text-gray-400">via {r.payment_method}</span>}
+                                        <StatusBadge status={r.status} />
+                                    </div>
+                                    <p className="text-sm text-gray-600 mt-1">{r.reason}</p>
+                                    {r.admin_note && <p className="text-xs text-indigo-600 italic mt-1">Admin note: {r.admin_note}</p>}
+                                    <p className="text-xs text-gray-400 mt-1">{new Date(r.submitted_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                </div>
+                                {r.invoice_url && (
+                                    <img src={r.invoice_url} alt="Invoice" className="w-14 h-14 rounded-lg border border-gray-200 object-cover shrink-0" />
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Main Profile Content ─────────────────────────────────────────────────────
 function ProfileContent() {
     const { token } = useAuth();
     const [activeTab, setActiveTab] = useState<Tab>('info');
@@ -271,7 +445,7 @@ function ProfileContent() {
                 {/* Tabs */}
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex gap-0 border-b border-gray-200">
-                        {([['info', 'Personal Info', User], ['salary', 'Salary', DollarSign]] as const).map(([tab, label, Icon]) => (
+                        {([['info', 'Personal Info', User], ['salary', 'Salary', DollarSign], ['payments', 'Payment History', Receipt]] as const).map(([tab, label, Icon]) => (
                             <button key={tab} onClick={() => { setActiveTab(tab); setEditing(false); }}
                                 className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
                                 <Icon className="w-4 h-4" />{label}
@@ -348,6 +522,10 @@ function ProfileContent() {
 
                 {activeTab === 'salary' && token && (
                     <SalaryTab profile={profile} token={token} />
+                )}
+
+                {activeTab === 'payments' && token && (
+                    <PaymentHistoryTab token={token} />
                 )}
             </div>
         </div>
