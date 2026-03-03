@@ -117,9 +117,16 @@ export default function ProductsPage() {
                         </button>
                         <Link
                             href="/settings/categories"
-                            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
+                            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm flex items-center justify-center"
                         >
                             Manage Categories
+                        </Link>
+                        <Link
+                            href="/products/new"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm flex items-center justify-center gap-2"
+                        >
+                            <Plus className="w-4 h-4" />
+                            New Product
                         </Link>
                     </div>
                 </div>
