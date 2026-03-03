@@ -294,20 +294,26 @@ export default function AdminUsersPage() {
 
                                             {/* Role dropdown */}
                                             <td className="px-6 py-4">
-                                                <div className="relative inline-block">
-                                                    <select
-                                                        value={user.role}
-                                                        onChange={e => handleRoleChange(user.employee_id, e.target.value as Role)}
-                                                        disabled={roleLoading[user.employee_id]}
-                                                        className={`appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${ROLE_COLORS[user.role]
-                                                            } ${roleLoading[user.employee_id] ? 'opacity-50 cursor-wait' : ''}`}
-                                                    >
-                                                        {ROLES.map(r => (
-                                                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                                                        ))}
-                                                    </select>
-                                                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
-                                                </div>
+                                                {user.role === 'ADMIN' ? (
+                                                    <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${ROLE_COLORS.ADMIN}`}>
+                                                        Admin
+                                                    </span>
+                                                ) : (
+                                                    <div className="relative inline-block">
+                                                        <select
+                                                            value={user.role}
+                                                            onChange={e => handleRoleChange(user.employee_id, e.target.value as Role)}
+                                                            disabled={roleLoading[user.employee_id]}
+                                                            className={`appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${ROLE_COLORS[user.role]
+                                                                } ${roleLoading[user.employee_id] ? 'opacity-50 cursor-wait' : ''}`}
+                                                        >
+                                                            {ROLES.filter(r => r !== 'ADMIN').map(r => (
+                                                                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                                                            ))}
+                                                        </select>
+                                                        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
+                                                    </div>
+                                                )}
                                             </td>
 
                                             {/* Designation */}
