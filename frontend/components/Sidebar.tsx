@@ -14,7 +14,8 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowRightLeft,
-  LogOut
+  LogOut,
+  Briefcase
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
@@ -47,6 +48,7 @@ export default function Sidebar() {
         <NavItem href="/inventory" icon={<Package />} label="Inventory" active={pathname.startsWith('/inventory')} />
         <NavItem href="/sales" icon={<ShoppingCart />} label="Sales (POS)" active={pathname.startsWith('/sales')} />
         <NavItem href="/contacts" icon={<Users />} label="Contacts" active={pathname.startsWith('/contacts')} />
+        <NavItem href="/employees" icon={<Briefcase />} label="Employees" active={pathname.startsWith('/employees')} />
         <NavItem href="/banking" icon={<Wallet />} label="Banking" active={pathname.startsWith('/banking')} />
 
         {/* Transactions Group */}
@@ -106,7 +108,7 @@ export default function Sidebar() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{user?.email || 'User'}</p>
-              <p className="text-xs text-slate-500 truncate">ID: {user?.employee_id || 'N/A'}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.role ?? 'EMPLOYEE'}</p>
             </div>
           </div>
           <button
