@@ -21,6 +21,7 @@ const accountRoutes = require('./routes/accountRoutes');
 const transactionCategoryRoutes = require('./routes/transactionCategoryRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const warrantyRoutes = require('./routes/warrantyRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -35,6 +36,7 @@ app.use('/api/accounts', accountRoutes);
 app.use('/api/banking/categories', transactionCategoryRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/warranty', warrantyRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
