@@ -5,12 +5,12 @@ require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-// Signup
+// POST /api/auth/signup  →  calls sp_signup_user RPC
+// bcrypt hashing stays in JS; all DB logic is in the RPC.
 const signup = async (req, res) => {
     const { email, password, employee_id } = req.body;
 
     try {
-        // Validation
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
@@ -19,85 +19,25 @@ const signup = async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
 
-        let targetEmployeeId = employee_id;
-
-        // Special handling for first-time setup (if no employee_id provided)
-        if (!targetEmployeeId) {
-            // Check if any users exist
-            const { count, error: countError } = await supabase
-                .from('user_account')
-                .select('*', { count: 'exact', head: true });
-
-            if (countError) throw countError;
-
-            // If no users exist, this is the First Run. Create a default Admin Employee.
-            if (count === 0) {
-                console.log('First user signup detected. Creating default Administrator employee...');
-
-                const { data: newAdmin, error: adminError } = await supabase
-                    .from('employee')
-                    .insert([{
-                        name: 'Administrator',
-                        role: 'Admin',
-                        designation: 'System Admin',
-                        email: email, // Use the signup email for the employee record too
-                        basic_salary: 0,
-                        join_date: new Date().toISOString().split('T')[0], // Today's date YYYY-MM-DD
-                        is_active: true
-                    }])
-                    .select('employee_id')
-                    .single();
-
-                if (adminError) {
-                    console.error('Failed to create default admin:', adminError);
-                    return res.status(500).json({ error: 'Failed to create default admin profile' });
-                }
-
-                targetEmployeeId = newAdmin.employee_id;
-            } else {
-                // Not the first user, so employee profile is mandatory
-                return res.status(400).json({ error: 'Employee profile is required' });
-            }
-        }
-
-        // Check if email already exists
-        const { data: existingUser } = await supabase
-            .from('user_account')
-            .select('user_id')
-            .eq('email', email)
-            .limit(1);
-
-        if (existingUser && existingUser.length > 0) {
-            return res.status(400).json({ error: 'Email already registered' });
-        }
-
-        // Check if employee_id already has a user account
-        const { data: existingEmployeeUser } = await supabase
-            .from('user_account')
-            .select('user_id')
-            .eq('employee_id', parseInt(targetEmployeeId))
-            .limit(1);
-
-        if (existingEmployeeUser && existingEmployeeUser.length > 0) {
-            return res.status(400).json({ error: 'This employee profile already has a user account' });
-        }
-
-        // Hash password
+        // Hash password in Node.js (bcrypt cannot run inside PostgreSQL)
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // Create user account
-        const { data: newUser, error } = await supabase
-            .from('user_account')
-            .insert([{
-                email,
-                password_hash: passwordHash,
-                employee_id: parseInt(targetEmployeeId),
-                is_active: true
-            }])
-            .select('user_id, email, employee_id')
-            .single();
+        // Call Supabase RPC — handles first-user employee creation,
+        // duplicate checks, and user_account insert atomically.
+        const { data: newUser, error } = await supabase.rpc('sp_signup_user', {
+            p_email: email,
+            p_password_hash: passwordHash,
+            p_employee_id: employee_id ? parseInt(employee_id) : null
+        });
 
-        if (error) throw error;
+        if (error) {
+            // Surface specific error messages raised from the RPC
+            const msg = error.message || '';
+            if (msg.includes('EMAIL_EXISTS')) return res.status(400).json({ error: 'Email already registered' });
+            if (msg.includes('EMPLOYEE_REQUIRED')) return res.status(400).json({ error: 'Employee profile is required' });
+            if (msg.includes('EMPLOYEE_ACCOUNT_EXISTS')) return res.status(400).json({ error: 'This employee profile already has a user account' });
+            throw error;
+        }
 
         // Generate JWT token
         const token = jwt.sign(
@@ -117,7 +57,7 @@ const signup = async (req, res) => {
     }
 };
 
-// Login
+// POST /api/auth/login
 const login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -126,7 +66,7 @@ const login = async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        // Find user by email
+        // Fetch user (password comparison must happen in JS via bcrypt)
         const { data: user } = await supabase
             .from('user_account')
             .select('user_id, email, password_hash, is_active, employee_id')
@@ -141,14 +81,14 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'User account is inactive' });
         }
 
-        // Verify password
+        // Verify password (bcrypt comparison stays in JS)
         const validPassword = await bcrypt.compare(password, user.password_hash);
 
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        // Update last_login
+        // Update last_login timestamp
         await supabase
             .from('user_account')
             .update({ last_login: new Date().toISOString() })
@@ -176,13 +116,12 @@ const login = async (req, res) => {
     }
 };
 
-// Logout
+// POST /api/auth/logout
 const logout = (req, res) => {
-    // Token is removed on frontend
     res.json({ message: 'Logged out successfully' });
 };
 
-// Profile
+// GET /api/auth/profile
 const getProfile = async (req, res) => {
     try {
         const { data: user } = await supabase

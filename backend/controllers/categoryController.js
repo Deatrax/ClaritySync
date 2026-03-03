@@ -1,6 +1,6 @@
 const supabase = require('../db');
 
-// 1. Categories (Dynamic Attributes Support)
+// GET /api/categories
 const getAllCategories = async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -19,48 +19,35 @@ const getAllCategories = async (req, res) => {
     }
 };
 
+// POST /api/categories  →  calls sp_create_category_with_attributes RPC
 const createCategory = async (req, res) => {
     const { category_name, description, attributes } = req.body;
-    // attributes = [{ attribute_name, data_type, is_required }]
 
     try {
-        // 1. Create Category
-        const { data: catData, error: catError } = await supabase
-            .from('category')
-            .insert([{ category_name, description }])
-            .select()
-            .single();
+        const { data, error } = await supabase.rpc('sp_create_category_with_attributes', {
+            p_category_name: category_name,
+            p_description: description || null,
+            p_attributes: (attributes && attributes.length > 0)
+                ? attributes.map(a => ({
+                    attribute_name: a.attribute_name,
+                    data_type: a.data_type || 'VARCHAR',
+                    is_required: a.is_required || false
+                }))
+                : []
+        });
 
-        if (catError) throw catError;
+        if (error) throw error;
 
-        // 2. Create Attributes Definition
-        if (attributes && attributes.length > 0) {
-            const attrInserts = attributes.map(attr => ({
-                category_id: catData.category_id,
-                attribute_name: attr.attribute_name,
-                data_type: attr.data_type || 'VARCHAR',
-                is_required: attr.is_required || false
-            }));
-
-            const { error: attrError } = await supabase
-                .from('category_attribute')
-                .insert(attrInserts);
-
-            if (attrError) throw attrError;
-        }
-
-        res.status(201).json(catData);
+        res.status(201).json(data);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
     }
 };
 
-// Seed default categories (helper endpoint)
+// POST /api/categories/seed-defaults
 const seedDefaults = async (req, res) => {
     try {
-        console.log('Attempting to seed default categories...');
-
         const defaultCategories = [
             { category_name: 'Laptop', description: 'Laptops and notebook computers' },
             { category_name: 'Mobile', description: 'Mobile phones and smartphones' },
@@ -73,60 +60,29 @@ const seedDefaults = async (req, res) => {
             { category_name: 'Accessories', description: 'Accessories and add-ons' }
         ];
 
-        // Check if categories already exist
-        const { data: existingCategories, error: checkError } = await supabase.from('category')
-            .select('category_id, category_name')
+        const { data: existingCategories } = await supabase
+            .from('category')
+            .select('category_name')
             .in('category_name', defaultCategories.map(c => c.category_name));
 
-        if (checkError) {
-            console.error('Error checking existing categories:', checkError);
-            throw checkError;
+        const existingNames = new Set(existingCategories?.map(c => c.category_name) || []);
+        const toInsert = defaultCategories.filter(c => !existingNames.has(c.category_name));
+
+        if (toInsert.length === 0) {
+            return res.status(200).json({ message: 'All categories already exist', count: 0, data: [] });
         }
 
-        console.log('Existing categories:', existingCategories?.length || 0);
+        const { data, error } = await supabase.from('category').insert(toInsert).select();
+        if (error) throw error;
 
-        // Filter out categories that already exist
-        const categoriesToInsert = defaultCategories.filter(newCat =>
-            !existingCategories?.some(existing => existing.category_name === newCat.category_name)
-        );
-
-        if (categoriesToInsert.length === 0) {
-            console.log('All categories already exist');
-            return res.status(200).json({
-                message: 'All categories already exist',
-                count: 0,
-                data: []
-            });
-        }
-
-        console.log(`Inserting ${categoriesToInsert.length} new categories...`);
-
-        const { data, error } = await supabase.from('category')
-            .insert(categoriesToInsert)
-            .select();
-
-        if (error) {
-            console.error('Error inserting categories:', error);
-            throw error;
-        }
-
-        console.log(`Successfully seeded ${data?.length || 0} categories`);
-        res.status(201).json({
-            message: 'Categories seeded successfully',
-            count: data?.length || 0,
-            data: data || [],
-            skipped: defaultCategories.length - (data?.length || 0)
-        });
+        res.status(201).json({ message: 'Categories seeded successfully', count: data?.length || 0, data });
     } catch (err) {
         console.error('Fatal error in seed categories:', err);
-        res.status(500).json({
-            error: 'Failed to seed categories',
-            details: err.message || String(err),
-            code: err.code
-        });
+        res.status(500).json({ error: 'Failed to seed categories', details: err.message });
     }
 };
 
+// GET /api/categories/:id/attributes
 const getCategoryAttributes = async (req, res) => {
     const { id } = req.params;
     try {
@@ -137,12 +93,7 @@ const getCategoryAttributes = async (req, res) => {
             .order('attribute_id', { ascending: true });
 
         if (error) throw error;
-
-        if (!data || data.length === 0) {
-            return res.json([]);
-        }
-
-        res.json(data);
+        res.json(data || []);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error', details: err.message });
