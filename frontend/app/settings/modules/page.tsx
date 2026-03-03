@@ -47,6 +47,7 @@ export default function ModuleManagementPage() {
     const [modules, setModules] = useState<ModuleConfig[]>([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
+    const [showAlert, setShowAlert] = useState(false);
 
     const fetchModules = async () => {
         try {
@@ -130,13 +131,39 @@ export default function ModuleManagementPage() {
                 </p>
             </div>
 
-            {/* Warning Alert */}
-            <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl flex gap-3 text-amber-200/80">
-                <Info className="shrink-0 text-amber-500" size={20} />
-                <p className="text-sm">
-                    Disabling a module will immediately hide its links from all users' sidebars and block API access.
-                    Data is preserved but will be inaccessible until re-enabled.
-                </p>
+            {/* Warning Alert Section */}
+            <div className="relative min-h-[32px]">
+                {!showAlert ? (
+                    <button
+                        onClick={() => setShowAlert(true)}
+                        className="flex items-center justify-center w-8 h-8 rounded-full bg-red-700 border border-red-700 shadow-lg hover:scale-110 active:scale-95 transition-all duration-300 group"
+
+                    >
+                        <Info size={18} color="white" />
+
+                        {/* Tooltip hint when collapsed */}
+                        <span className="absolute left-10 scale-0 group-hover:scale-100 transition-transform origin-left bg-slate-800 text-white text-[10px] px-2 py-1 rounded border border-slate-700 whitespace-nowrap">
+                            System Warning
+                        </span>
+                    </button>
+                ) : (
+                    <div
+                        className="bg-red-700 border border-red-700 p-4 rounded-xl flex gap-3 text-amber-200/80 shadow-2xl animate-in fade-in zoom-in duration-700 relative group cursor-pointer"
+                        onClick={() => setShowAlert(false)}
+                        title="Click to shrink"
+                    >
+                        <div className="bg-red-800 rounded-full p-1 self-start group-hover:bg-red-900 transition-colors">
+                            <Info className="shrink-0 text-amber-500" size={20} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-medium leading-relaxed">
+                                Disabling a module will immediately hide its links from users and block API access.
+                                Data is preserved but will be inaccessible until re-enabled.
+                            </p>
+
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Module Grid */}
@@ -150,8 +177,8 @@ export default function ModuleManagementPage() {
                             key={mod.config_id}
                             className={`p-6 rounded-2xl border transition-all duration-300 relative group
                                 ${mod.is_enabled
-                                    ? 'bg-slate-900/40 border-slate-800 hover:border-indigo-500/50'
-                                    : 'bg-slate-950/40 border-slate-900 grayscale-[0.5]'}`}
+                                    ? 'bg-slate-800 backdrop-blur-md border-slate-800 hover:border-indigo-500/50'
+                                    : 'bg-slate-600 border-slate-900 grayscale-[0.5]'}`}
                         >
                             <div className="flex items-start justify-between">
                                 <div className="flex gap-4">
@@ -186,7 +213,7 @@ export default function ModuleManagementPage() {
                                             ${mod.is_enabled ? 'bg-indigo-600' : 'bg-slate-700'}`}
                                     >
                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200
-                                            ${mod.is_enabled ? 'translate-x-[22px]' : 'translate-x-[4px]'}`}
+                                            ${mod.is_enabled ? 'translate-x-[12px]' : 'translate-x-[-10px]'}`}
                                         />
                                         {isUpdating && (
                                             <RefreshCw size={10} className="absolute inset-0 m-auto animate-spin text-indigo-200" />
@@ -199,7 +226,7 @@ export default function ModuleManagementPage() {
                             <div className="mt-4 pt-4 border-t border-slate-800/50 flex items-center justify-between text-[11px] text-slate-500">
                                 <span className="flex items-center gap-1">
                                     {mod.is_enabled ? (
-                                        <><CheckCircle2 size={12} className="text-emerald-500" /> Active</>
+                                        <><CheckCircle2 size={12} className="text-emerald-500" /> <span className="text-white">Active</span></>
                                     ) : (
                                         <><XCircle size={12} className="text-rose-500" /> Disabled</>
                                     )}
