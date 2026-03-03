@@ -18,7 +18,8 @@ import {
   Bell,
   CheckCheck,
   X,
-  KeyRound
+  KeyRound,
+  CircleUser
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
@@ -133,6 +134,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         <NavItem href="/" icon={<LayoutDashboard />} label="Dashboard" active={pathname === '/'} />
+        <NavItem href="/profile" icon={<CircleUser />} label="My Profile" active={pathname === '/profile'} />
         <NavItem href="/inventory" icon={<Package />} label="Inventory" active={pathname.startsWith('/inventory')} />
         <NavItem href="/sales" icon={<ShoppingCart />} label="Sales (POS)" active={pathname.startsWith('/sales')} />
         <NavItem href="/contacts" icon={<Users />} label="Contacts" active={pathname.startsWith('/contacts')} />
