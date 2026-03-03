@@ -21,7 +21,10 @@ interface FormState {
     address: string;
     photo_url: string | null;
     nid_photo_url: string | null;
+    employee_type_id: number | '';
 }
+
+interface EmployeeType { type_id: number; type_name: string; }
 
 function fileToDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -92,12 +95,20 @@ function EditEmployeeContent() {
         name: '', designation: '', phone: '', email: '',
         basic_salary: '', join_date: '', role: 'EMPLOYEE', is_active: true,
         address: '', photo_url: null, nid_photo_url: null,
+        employee_type_id: '' as number | '',
     });
     const [fetchLoading, setFetchLoading] = useState(true);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
     const [serverError, setServerError] = useState<string | null>(null);
     const [notFound, setNotFound] = useState(false);
+    const [employeeTypes, setEmployeeTypes] = useState<EmployeeType[]>([]);
+
+    useEffect(() => {
+        if (!token) return;
+        fetch('/api/employee-types', { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.json()).then(setEmployeeTypes).catch(() => { });
+    }, [token]);
 
     useEffect(() => {
         if (user && user.role && user.role !== 'ADMIN') router.replace('/employees');
@@ -126,6 +137,7 @@ function EditEmployeeContent() {
                     address: emp.address ?? '',
                     photo_url: emp.photo_url ?? null,
                     nid_photo_url: emp.nid_photo_url ?? null,
+                    employee_type_id: emp.employee_type_id ?? '',
                 });
             } catch (err) {
                 setServerError('Could not load employee data.');
@@ -158,10 +170,15 @@ function EditEmployeeContent() {
         setSubmitting(true);
         setServerError(null);
         try {
+            const selectedType = employeeTypes.find(t => t.type_id === form.employee_type_id);
             const res = await fetch(`/api/employees/${employeeId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ ...form, basic_salary: form.basic_salary ? Number(form.basic_salary) : null }),
+                body: JSON.stringify({
+                    ...form,
+                    basic_salary: form.basic_salary ? Number(form.basic_salary) : null,
+                    designation: selectedType?.type_name ?? form.designation,
+                }),
             });
             if (!res.ok) {
                 const body = await res.json();
@@ -214,10 +231,20 @@ function EditEmployeeContent() {
                         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                     </div>
 
+                    {/* Designation — Employee Type Dropdown */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
-                        <input type="text" name="designation" value={form.designation} onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Designation / Employee Type
+                            <span className="ml-1 text-xs text-gray-400">(sets initial payslip amounts)</span>
+                        </label>
+                        <select
+                            value={form.employee_type_id}
+                            onChange={e => setForm(prev => ({ ...prev, employee_type_id: e.target.value ? Number(e.target.value) : '' }))}
+                            className="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                            <option value="">— Select a type —</option>
+                            {employeeTypes.map(t => <option key={t.type_id} value={t.type_id}>{t.type_name}</option>)}
+                        </select>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

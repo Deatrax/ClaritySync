@@ -1,6 +1,6 @@
 const supabase = require('../db');
 
-const FULL_FIELDS = 'employee_id, name, designation, phone, email, basic_salary, join_date, is_active, role, photo_url, nid_photo_url, address, created_at';
+const FULL_FIELDS = 'employee_id, name, designation, phone, email, basic_salary, join_date, is_active, role, photo_url, nid_photo_url, address, employee_type_id, created_at';
 
 // GET /api/employees?search=&active_only=true
 const getAllEmployees = async (req, res) => {
@@ -97,7 +97,7 @@ const getEmployeeById = async (req, res) => {
 
 // POST /api/employees
 const createEmployee = async (req, res) => {
-    const { name, designation, phone, email, basic_salary, join_date, is_active, role, address, photo_url, nid_photo_url } = req.body;
+    const { name, designation, phone, email, basic_salary, join_date, is_active, role, address, photo_url, nid_photo_url, employee_type_id } = req.body;
 
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
@@ -116,6 +116,7 @@ const createEmployee = async (req, res) => {
                 address: address || null,
                 photo_url: photo_url || null,
                 nid_photo_url: nid_photo_url || null,
+                employee_type_id: employee_type_id || null,
             }])
             .select(FULL_FIELDS)
             .single();
@@ -131,7 +132,7 @@ const createEmployee = async (req, res) => {
 // PUT /api/employees/:id
 const updateEmployee = async (req, res) => {
     const { id } = req.params;
-    const { name, designation, phone, email, basic_salary, join_date, is_active, role, address, photo_url, nid_photo_url } = req.body;
+    const { name, designation, phone, email, basic_salary, join_date, is_active, role, address, photo_url, nid_photo_url, employee_type_id } = req.body;
 
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
@@ -150,6 +151,7 @@ const updateEmployee = async (req, res) => {
                 address: address || null,
                 photo_url: photo_url || null,
                 nid_photo_url: nid_photo_url || null,
+                employee_type_id: employee_type_id || null,
             })
             .eq('employee_id', id)
             .select(FULL_FIELDS)

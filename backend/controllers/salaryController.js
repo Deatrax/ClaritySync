@@ -102,15 +102,16 @@ const deleteComponent = async (req, res) => {
 
 // ─── Salary Records ──────────────────────────────────────────────────────────
 
-// Helper: get or auto-create a salary record for employee+month, filling in applicable components at 0
+// Helper: get or auto-create a salary record for employee+month
+// Seeds component amounts from the employee's type template (if set), otherwise 0.
+// Already-saved rows for an existing month are NEVER overwritten.
 async function getOrCreateSalaryRecord(employee_id, month) {
-    // Normalize month to first day (YYYY-MM-01)
     const monthDate = month + '-01';
 
-    // Fetch employee to know their role
+    // Fetch employee including their type
     const { data: emp } = await supabase
         .from('employee')
-        .select('role, name, designation, basic_salary')
+        .select('role, name, designation, basic_salary, employee_type_id')
         .eq('employee_id', employee_id)
         .single();
 
@@ -123,6 +124,8 @@ async function getOrCreateSalaryRecord(employee_id, month) {
         .eq('employee_id', employee_id)
         .eq('month', monthDate)
         .maybeSingle();
+
+    const isNewRecord = !salaryRecord;
 
     if (!salaryRecord) {
         const { data: created, error: createErr } = await supabase
@@ -141,7 +144,7 @@ async function getOrCreateSalaryRecord(employee_id, month) {
         .or(`applicable_role.eq.${emp.role},applicable_role.is.null`)
         .order('sort_order', { ascending: true });
 
-    // Get existing component values for this salary record
+    // Get existing component values (only present for non-new records or partially-filled ones)
     const { data: existingValues } = await supabase
         .from('salary_component_value')
         .select('*')
@@ -150,16 +153,30 @@ async function getOrCreateSalaryRecord(employee_id, month) {
     const existingMap = {};
     (existingValues || []).forEach(v => { existingMap[v.component_id] = v; });
 
-    // Fill in missing components with amount=0
+    // If this is a brand-new record AND the employee has a type, load preset amounts
+    let typeAmountMap = {};
+    if (isNewRecord && emp.employee_type_id) {
+        const { data: typeComponents } = await supabase
+            .from('employee_type_component')
+            .select('component_id, amount')
+            .eq('type_id', emp.employee_type_id);
+        (typeComponents || []).forEach(tc => { typeAmountMap[tc.component_id] = parseFloat(tc.amount); });
+    }
+
+    // Fill in missing components — use template amount if available, else 0
     const toInsert = (components || [])
         .filter(c => !existingMap[c.component_id])
-        .map(c => ({ salary_id: salaryRecord.salary_id, component_id: c.component_id, amount: 0 }));
+        .map(c => ({
+            salary_id: salaryRecord.salary_id,
+            component_id: c.component_id,
+            amount: typeAmountMap[c.component_id] ?? 0
+        }));
 
     if (toInsert.length > 0) {
         await supabase.from('salary_component_value').insert(toInsert);
     }
 
-    // Re-fetch all values
+    // Re-fetch all values with component type info
     const { data: allValues } = await supabase
         .from('salary_component_value')
         .select('*, salary_component_type(*)')
@@ -168,6 +185,7 @@ async function getOrCreateSalaryRecord(employee_id, month) {
 
     return { ...salaryRecord, employee: emp, components: allValues || [] };
 }
+
 
 // GET /api/salary/me?month=YYYY-MM
 const getMyMonthlySalary = async (req, res) => {

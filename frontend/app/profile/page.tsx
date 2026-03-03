@@ -38,16 +38,22 @@ function fileToDataUrl(file: File): Promise<string> {
 function generateMonthOptions(joinDate: string | null): string[] {
     const options: string[] = [];
     const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const start = joinDate ? new Date(joinDate) : new Date(lastMonth.getFullYear() - 1, lastMonth.getMonth(), 1);
-    start.setDate(1);
+    // Upper bound: current month (admins may have processed current month already)
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Start: employee join date (first of that month), defaulting to 1 year ago
+    let start = joinDate
+        ? new Date(new Date(joinDate).getFullYear(), new Date(joinDate).getMonth(), 1)
+        : new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    // If join date is in the future or same as/after currentMonth, cap to currentMonth
+    if (start > currentMonth) start = currentMonth;
     const cur = new Date(start);
-    while (cur <= lastMonth) {
+    while (cur <= currentMonth) {
         options.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`);
         cur.setMonth(cur.getMonth() + 1);
     }
     return options.reverse();
 }
+
 
 function PhotoUploader({ label, icon, value, onChange }: { label: string; icon: React.ReactNode; value: string | null; onChange: (v: string | null) => void }) {
     const inputRef = useRef<HTMLInputElement>(null);
