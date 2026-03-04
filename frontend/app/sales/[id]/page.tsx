@@ -77,7 +77,8 @@ export default function SaleDetailsPage() {
     }
 
     return (
-        <div className="p-8 max-w-4xl mx-auto mb-12">
+        <div className="min-h-screen bg-gray-50 p-8">
+            <div className="max-w-4xl mx-auto mb-12">
             {/* Header Navigation */}
             <div className="flex items-center justify-between mb-8">
                 <Link href="/sales/list" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors">
@@ -235,6 +236,7 @@ export default function SaleDetailsPage() {
                         </button>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

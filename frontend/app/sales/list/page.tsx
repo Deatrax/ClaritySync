@@ -60,7 +60,8 @@ export default function SalesListPage() {
     });
 
     return (
-        <div className="p-8 max-w-6xl mx-auto">
+        <div className="min-h-screen bg-gray-50 p-8">
+            <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -179,6 +180,7 @@ export default function SalesListPage() {
                         </tbody>
                     </table>
                 </div>
+            </div>
             </div>
         </div>
     );
