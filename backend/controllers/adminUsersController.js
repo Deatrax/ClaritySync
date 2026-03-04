@@ -16,7 +16,7 @@ const getAdminUsers = async (req, res) => {
         // Employees who do NOT have a user_account yet
         const { data: allEmployees, error: empError } = await supabase
             .from('employee')
-            .select('employee_id, name, designation, email, role')
+            .select('employee_id, name, designation, email, business_role_id, business_role:business_role_id(role_key, display_name)')
             .eq('is_active', true)
             .order('name', { ascending: true });
 
@@ -36,27 +36,33 @@ const getAdminUsers = async (req, res) => {
 };
 
 // PUT /api/settings/admin-users/:employeeId/role
-// Body: { new_role: 'MANAGER' }
+// Body: { business_role_id: 2 }
 // Calls proc_change_employee_role via Supabase RPC
 const changeEmployeeRole = async (req, res) => {
     const { employeeId } = req.params;
-    const { new_role } = req.body;
+    const { business_role_id } = req.body;
     const actingUserId = req.user.user_id;
 
-    if (!new_role) {
-        return res.status(400).json({ error: 'new_role is required' });
-    }
-
-    const validRoles = ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'INVENTORY_STAFF', 'CASHIER', 'EMPLOYEE'];
-    if (!validRoles.includes(new_role)) {
-        return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+    if (!business_role_id) {
+        return res.status(400).json({ error: 'business_role_id is required' });
     }
 
     try {
+        // Validate role exists
+        const { data: role, error: roleErr } = await supabase
+            .from('business_role')
+            .select('role_id')
+            .eq('role_id', parseInt(business_role_id))
+            .single();
+
+        if (roleErr || !role) {
+            return res.status(400).json({ error: 'Invalid role ID' });
+        }
+
         const { error } = await supabase.rpc('proc_change_employee_role', {
             p_acting_user_id: actingUserId,
             p_target_emp_id: parseInt(employeeId),
-            p_new_role: new_role
+            p_new_role_id: parseInt(business_role_id)
         });
 
         if (error) {
