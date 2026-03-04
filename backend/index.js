@@ -31,6 +31,7 @@ const salaryRoutes = require('./routes/salaryRoutes');
 const employeeTypeRoutes = require('./routes/employeeTypeRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const warrantyRoutes = require('./routes/warrantyRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -54,6 +55,7 @@ app.use('/api/salary', salaryRoutes);
 app.use('/api/employee-types', employeeTypeRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/warranty', warrantyRoutes);
+app.use('/api/public', publicRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

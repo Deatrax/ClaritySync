@@ -2,7 +2,7 @@
 import { useState, useEffect, use } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Printer, Calendar, User, Phone, Mail, FileText, CheckCircle2, Box } from 'lucide-react';
+import { ArrowLeft, Printer, Calendar, User, Phone, Mail, FileText, CheckCircle2, Box, Link as LinkIcon, Check } from 'lucide-react';
 import { format } from 'date-fns';
 
 const API_BASE = 'http://localhost:5000/api';
@@ -14,6 +14,7 @@ export default function SaleDetailsPage() {
     const [sale, setSale] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -32,6 +33,15 @@ export default function SaleDetailsPage() {
         };
         fetchSale();
     }, [id]);
+
+    const handleCopyLink = () => {
+        if (!sale?.public_receipt_token) return;
+        const url = `${window.location.origin}/receipt/${sale.public_receipt_token}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
 
     if (loading) {
         return (
@@ -180,8 +190,41 @@ export default function SaleDetailsPage() {
                 </div>
 
                 {/* Public Verification Link */}
-                <div className="px-8 py-5 bg-blue-50/50 border-t border-blue-100 text-center text-xs text-blue-600 font-medium">
-                    Receipt Token: {sale.public_receipt_token}
+                <div className="px-8 py-5 bg-blue-50/50 border-t border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-4 select-none print:hidden">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                            <LinkIcon className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Public Receipt Link</p>
+                            <p className="text-sm text-blue-600/80 mt-0.5">Share this secure link with your customer</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-blue-200/60 shadow-sm w-full sm:w-auto">
+                        <input 
+                            type="text" 
+                            readOnly 
+                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/receipt/${sale.public_receipt_token}`}
+                            className="bg-transparent border-none outline-none text-sm text-gray-500 w-full sm:w-64"
+                        />
+                        <button
+                            onClick={handleCopyLink}
+                            className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                                copied 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                            }`}
+                        >
+                            {copied ? (
+                                <>
+                                    <Check className="w-4 h-4" /> Copied
+                                </>
+                            ) : (
+                                'Copy'
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

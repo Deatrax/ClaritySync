@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, FileText, Receipt, ArrowRight, User, Calendar, CreditCard, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '@/app/context/AuthContext';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -24,11 +25,15 @@ export default function SalesListPage() {
     const [sales, setSales] = useState<Sale[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const { token } = useAuth();
 
     useEffect(() => {
         const fetchSales = async () => {
+            if (!token) return;
             try {
-                const res = await fetch(`${API_BASE}/sales`);
+                const res = await fetch(`${API_BASE}/sales`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
                 if (res.ok) {
                     const data = await res.json();
                     setSales(data);
@@ -39,8 +44,10 @@ export default function SalesListPage() {
                 setLoading(false);
             }
         };
-        fetchSales();
-    }, []);
+        if (token) {
+            fetchSales();
+        }
+    }, [token]);
 
     const filteredSales = sales.filter(sale => {
         if (!searchTerm) return true;

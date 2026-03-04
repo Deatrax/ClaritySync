@@ -46,6 +46,11 @@ export default function Sidebar() {
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [modules, setModules] = useState<Record<string, boolean>>({});
 
+  // Conditionally hide sidebar for public routes
+  if (pathname.startsWith('/auth') || pathname.startsWith('/receipt')) {
+    return null;
+  }
+
   useEffect(() => {
     const fetchModules = async () => {
       try {
