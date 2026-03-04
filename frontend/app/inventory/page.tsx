@@ -6,6 +6,8 @@ import {
   Search,
   Plus,
   AlertCircle,
+  Trash2,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
@@ -56,9 +58,27 @@ export default function InventoryPage() {
     quantity: '',
     purchase_price: '',
     selling_price: '',
-    serial_number: '',
     account_id: ''
   });
+  const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
+
+  // Determine if the selected product supports serial numbers
+  const selectedProduct = products.find(p => p.product_id === parseInt(stockForm.product_id));
+  const showSerialNumbers = selectedProduct?.has_serial_number === true;
+  const parsedQuantity = parseInt(stockForm.quantity) || 0;
+  const serialCountMismatch = showSerialNumbers && parsedQuantity > 0 && serialNumbers.filter(s => s.trim() !== '').length !== parsedQuantity;
+
+  const handleAddSerialNumber = () => {
+    setSerialNumbers(prev => [...prev, '']);
+  };
+
+  const handleRemoveSerialNumber = (index: number) => {
+    setSerialNumbers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSerialNumberChange = (index: number, value: string) => {
+    setSerialNumbers(prev => prev.map((s, i) => i === index ? value : s));
+  };
 
   const { format: formatC } = useCurrency();
 
@@ -160,8 +180,20 @@ export default function InventoryPage() {
 
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate serial numbers match quantity for serial products
+    if (showSerialNumbers) {
+      const validSerials = serialNumbers.filter(s => s.trim() !== '');
+      const qty = parseInt(stockForm.quantity) || 0;
+      if (validSerials.length !== qty) {
+        setMessage({ type: 'error', text: `You must enter exactly ${qty} serial number(s). Currently entered: ${validSerials.length}` });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const validSerials = showSerialNumbers ? serialNumbers.filter(s => s.trim() !== '') : [];
       const res = await fetch('http://localhost:5000/api/inventory/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,7 +203,7 @@ export default function InventoryPage() {
           quantity: parseInt(stockForm.quantity),
           purchase_price: parseFloat(stockForm.purchase_price),
           selling_price: parseFloat(stockForm.selling_price),
-          serial_number: stockForm.serial_number || null,
+          serial_numbers: validSerials.length > 0 ? validSerials : null,
           account_id: parseInt(stockForm.account_id)
         })
       });
@@ -183,9 +215,9 @@ export default function InventoryPage() {
           quantity: '',
           purchase_price: '',
           selling_price: '',
-          serial_number: '',
           account_id: '1'
         });
+        setSerialNumbers([]);
         fetchInventory();
         setTimeout(() => setMessage(null), 3000);
       } else {
@@ -434,16 +466,73 @@ export default function InventoryPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Serial Number (if applicable)</label>
-                <input
-                  type="text"
-                  value={stockForm.serial_number}
-                  onChange={(e) => setStockForm({ ...stockForm, serial_number: e.target.value })}
-                  placeholder="Leave empty if not applicable"
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                />
-              </div>
+              {/* Serial Numbers Section — only shown for serial-number products */}
+              {showSerialNumbers && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-blue-800">
+                      Serial Numbers
+                      {parsedQuantity > 0 && (
+                        <span className={`ml-2 text-xs font-normal ${
+                          serialCountMismatch ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          ({serialNumbers.filter(s => s.trim() !== '').length} / {parsedQuantity} entered)
+                        </span>
+                      )}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddSerialNumber}
+                      disabled={parsedQuantity > 0 && serialNumbers.length >= parsedQuantity}
+                      className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Serial
+                    </button>
+                  </div>
+
+                  {serialNumbers.length === 0 && parsedQuantity > 0 && (
+                    <p className="text-sm text-blue-600 mb-2">
+                      This product requires serial numbers. Add {parsedQuantity} serial number{parsedQuantity > 1 ? 's' : ''}.
+                    </p>
+                  )}
+
+                  <div className="space-y-2">
+                    {serialNumbers.map((serial, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={serial}
+                          onChange={(e) => handleSerialNumberChange(index, e.target.value)}
+                          placeholder={`Serial number ${index + 1}`}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSerialNumber(index)}
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {serialCountMismatch && parsedQuantity > 0 && serialNumbers.length > 0 && (
+                    <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Number of serial numbers must match quantity ({parsedQuantity})
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Message when product doesn't support serial numbers */}
+              {stockForm.product_id && !showSerialNumbers && (
+                <p className="text-xs text-gray-400 italic -mt-2">
+                  This product does not require serial numbers.
+                </p>
+              )}
 
               <button
                 type="submit"

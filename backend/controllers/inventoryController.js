@@ -44,8 +44,25 @@ const getInventory = async (req, res) => {
 };
 
 const addStock = async (req, res) => {
-    const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_number, account_id, employee_id } = req.body;
+    const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_numbers, serial_number, account_id, employee_id } = req.body;
     try {
+        // Build the serial numbers array:
+        // - Accept new `serial_numbers` array format
+        // - Fall back to legacy single `serial_number` string for backward compatibility
+        let serialArray = null;
+        if (serial_numbers && Array.isArray(serial_numbers) && serial_numbers.length > 0) {
+            serialArray = serial_numbers.filter(s => s && s.trim() !== '');
+            if (serialArray.length > 0 && serialArray.length !== parseInt(quantity)) {
+                return res.status(400).json({
+                    error: `Serial number count (${serialArray.length}) must match quantity (${quantity})`
+                });
+            }
+            if (serialArray.length === 0) serialArray = null;
+        } else if (serial_number && serial_number.trim() !== '') {
+            // Legacy single serial number support
+            serialArray = [serial_number.trim()];
+        }
+
         let userIdForTransaction = null;
         if (employee_id) {
             const { data: userData } = await supabase
@@ -60,14 +77,13 @@ const addStock = async (req, res) => {
 
         // Call RPC to process payment and add stock
         // This RPC handles both inserting into inventory AND recording the expense transaction.
-        const totalCost = purchase_price * quantity;
         const { data: rpcData, error: rpcError } = await supabase.rpc('sp_add_stock', {
             p_product_id: product_id,
             p_supplier_id: supplier_id,
-            p_quantity: quantity,
+            p_quantity: parseInt(quantity),
             p_purchase_price: purchase_price,
             p_selling_price: selling_price,
-            p_serial_number: serial_number || null,
+            p_serial_numbers: serialArray,
             p_account_id: parseInt(account_id),
             p_created_by: userIdForTransaction
         });
@@ -79,7 +95,7 @@ const addStock = async (req, res) => {
             action: 'ADD_STOCK',
             module: 'INVENTORY',
             description: `Added ${quantity} units of product ID ${product_id} at purchase price ${purchase_price}`,
-            newValues: { product_id, quantity, purchase_price, selling_price }
+            newValues: { product_id, quantity, purchase_price, selling_price, serial_numbers: serialArray }
         });
 
         // Since RPC returns void, we return a success message
