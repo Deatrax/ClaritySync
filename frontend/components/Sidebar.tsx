@@ -26,6 +26,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
   const [isWarrantyOpen, setIsWarrantyOpen] = useState(pathname.startsWith('/warranty'));
+  const [isSalesOpen, setIsSalesOpen] = useState(pathname.startsWith('/sales'));
 
   const handleLogout = () => {
     logout();
@@ -47,7 +48,29 @@ export default function Sidebar() {
         <NavItem href="/" icon={<LayoutDashboard />} label="Dashboard" active={pathname === '/'} />
         <NavItem href="/inventory" icon={<Package />} label="Inventory" active={pathname.startsWith('/inventory')} />
         <NavItem href="/products" icon={<Package />} label="Products" active={pathname.startsWith('/products')} />
-        <NavItem href="/sales" icon={<ShoppingCart />} label="Sales (POS)" active={pathname.startsWith('/sales')} />
+        
+        {/* Sales Group */}
+        <div>
+          <button
+            onClick={() => setIsSalesOpen(!isSalesOpen)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isSalesOpen || pathname.startsWith('/sales') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <ShoppingCart size={20} />
+              <span>Sales</span>
+            </div>
+            {isSalesOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {isSalesOpen && (
+            <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-2">
+              <NavItem href="/sales" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="New POS Sale" subItem active={pathname === '/sales'} />
+              <NavItem href="/sales/list" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Sales History" subItem active={pathname.startsWith('/sales/list')} />
+            </div>
+          )}
+        </div>
+
         <NavItem href="/contacts" icon={<Users />} label="Contacts" active={pathname.startsWith('/contacts')} />
         <NavItem href="/banking" icon={<Wallet />} label="Banking" active={pathname.startsWith('/banking')} />
 

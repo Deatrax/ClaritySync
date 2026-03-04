@@ -43,7 +43,7 @@ const getInventory = async (req, res) => {
 };
 
 const addStock = async (req, res) => {
-    const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_number, account_id } = req.body;
+    const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_number, account_id, employee_id } = req.body;
     try {
         // Call RPC to process payment and add stock
         // This RPC handles both inserting into inventory AND recording the expense transaction.
@@ -55,7 +55,8 @@ const addStock = async (req, res) => {
             p_purchase_price: purchase_price,
             p_selling_price: selling_price,
             p_serial_number: serial_number || null,
-            p_account_id: parseInt(account_id)
+            p_account_id: parseInt(account_id),
+            p_created_by: employee_id || null
         });
 
         if (rpcError) throw rpcError;
