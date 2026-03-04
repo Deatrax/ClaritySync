@@ -287,7 +287,7 @@ export default function RolesAndAccessPage() {
                     return (
                         <div
                             key={role.role_id}
-                            className="bg-slate-800/60 backdrop-blur border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-slate-600/60"
+                            className="bg-slate-800 backdrop-blur border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-slate-600/60"
                         >
                             {/* Row */}
                             <div className="flex items-center justify-between p-5 cursor-pointer" onClick={() => setExpandedRole(isExpanded ? null : role.role_id)}>
