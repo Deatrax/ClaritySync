@@ -101,9 +101,9 @@ export default function SalesPage() {
   const [completedSaleId, setCompletedSaleId] = useState<number | null>(null);
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
-  // Serial number picker modal
-  const [serialPickerProduct, setSerialPickerProduct] = useState<GroupedProduct | null>(null);
-  const [serialSearch, setSerialSearch] = useState('');
+  // Item picker modal (handles both serials and non-serialized batches)
+  const [pickerProduct, setPickerProduct] = useState<GroupedProduct | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
 
   // Warranty expiry alerts — keyed by inventory_id
   const [warrantyAlerts, setWarrantyAlerts] = useState<Record<number, { product_name: string; days_remaining: number; expires_at: string }>>({});
@@ -223,21 +223,32 @@ export default function SalesPage() {
     product.category_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  /* ─── Serial Number Picker Helpers ─────────────────── */
+  /* ─── Item Picker Helpers ──────────────────────────── */
 
-  // Get items for this product that are NOT already in the cart
-  const getAvailableSerials = (product: GroupedProduct) => {
-    const cartInventoryIds = new Set(cart.map(ci => ci.inventory_id));
-    return product.items.filter(item =>
-      item.quantity > 0 && !cartInventoryIds.has(item.inventory_id)
-    );
+  // Get items for this product that are NOT already in the cart (or have quantity left)
+  const getAvailableItems = (product: GroupedProduct) => {
+    return product.items.filter(item => {
+      if (product.has_serial_number) {
+        const cartInventoryIds = new Set(cart.map(ci => ci.inventory_id));
+        return item.quantity > 0 && !cartInventoryIds.has(item.inventory_id);
+      } else {
+        const cartItem = cart.find(ci => ci.inventory_id === item.inventory_id);
+        const cartQty = cartItem ? cartItem.quantity : 0;
+        return item.quantity > cartQty;
+      }
+    });
   };
 
-  const filteredSerials = serialPickerProduct
-    ? getAvailableSerials(serialPickerProduct).filter(item =>
-        serialSearch.trim() === '' ||
-        (item.serial_number && item.serial_number.toLowerCase().includes(serialSearch.toLowerCase()))
-      )
+  const filteredPickerItems = pickerProduct
+    ? getAvailableItems(pickerProduct).filter(item => {
+        if (pickerSearch.trim() === '') return true;
+        const searchLower = pickerSearch.toLowerCase();
+        if (pickerProduct.has_serial_number) {
+          return item.serial_number && item.serial_number.toLowerCase().includes(searchLower);
+        } else {
+          return item.selling_price.toString().includes(searchLower) || (item.supplier_name && item.supplier_name.toLowerCase().includes(searchLower));
+        }
+      })
     : [];
 
   /* ─── Cart Management ──────────────────────────────── */
@@ -270,16 +281,62 @@ export default function SalesPage() {
       subtotal: item.selling_price
     }]);
 
-    // Close modal if no more available serials
-    if (serialPickerProduct) {
-      const remaining = getAvailableSerials(serialPickerProduct).filter(
+    // Close modal if no more available items for this exact picker
+    if (pickerProduct && pickerProduct.has_serial_number) {
+      const remaining = getAvailableItems(pickerProduct).filter(
         i => i.inventory_id !== item.inventory_id
       );
       if (remaining.length === 0) {
-        setSerialPickerProduct(null);
-        setSerialSearch('');
+        setPickerProduct(null);
+        setPickerSearch('');
       }
     }
+  };
+
+  const addSpecificNonSerializedItem = (product: GroupedProduct, item: GroupedInventoryItem) => {
+    const existingCartItem = cart.find(ci => ci.inventory_id === item.inventory_id);
+
+    if (existingCartItem) {
+      if (existingCartItem.quantity < item.quantity) {
+        setCart(prev => prev.map(ci =>
+          ci.inventory_id === item.inventory_id
+            ? { ...ci, quantity: ci.quantity + 1, subtotal: (ci.quantity + 1) * ci.price }
+            : ci
+        ));
+      } else {
+        setMessage({ type: 'error', text: 'Maximum available quantity reached for this batch.' });
+      }
+    } else {
+      fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+        .then(r => r.json())
+        .then(w => {
+          if (w?.has_warranty && w?.is_expiring_soon) {
+            setWarrantyAlerts(prev => ({
+              ...prev,
+              [item.inventory_id]: {
+                product_name: product.product_name,
+                days_remaining: w.days_remaining,
+                expires_at: w.warranty_expires_at
+              }
+            }));
+          }
+        })
+        .catch(() => {});
+
+      setCart(prev => [...prev, {
+        inventory_id: item.inventory_id,
+        product_id: product.product_id,
+        product_name: product.product_name,
+        serial_number: null,
+        price: item.selling_price,
+        quantity: 1,
+        subtotal: item.selling_price
+      }]);
+    }
+    
+    // Close modal
+    setPickerProduct(null);
+    setPickerSearch('');
   };
 
   const addNonSerializedItem = (product: GroupedProduct) => {
@@ -351,11 +408,18 @@ export default function SalesPage() {
 
   const handleAddToCart = (product: GroupedProduct) => {
     if (product.has_serial_number) {
-      // Open serial number picker modal
-      setSerialPickerProduct(product);
-      setSerialSearch('');
+      // Open picker modal
+      setPickerProduct(product);
+      setPickerSearch('');
     } else {
-      addNonSerializedItem(product);
+      const distinctPrices = new Set(product.items.map(i => i.selling_price));
+      if (distinctPrices.size > 1) {
+        // Open picker modal for batches/prices
+        setPickerProduct(product);
+        setPickerSearch('');
+      } else {
+        addNonSerializedItem(product);
+      }
     }
   };
 
@@ -936,75 +1000,96 @@ export default function SalesPage() {
         </div>
       </div>
 
-      {/* ─── Serial Number Picker Modal ──────────────── */}
-      {serialPickerProduct && (
+      {/* ─── Item Picker Modal ──────────────── */}
+      {pickerProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
             {/* Modal Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Select Serial Number</h3>
-                  <p className="text-sm text-gray-500 mt-1">{serialPickerProduct.product_name}</p>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {pickerProduct.has_serial_number ? 'Select Serial Number' : 'Select Product Price / Batch'}
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">{pickerProduct.product_name}</p>
                 </div>
                 <button
-                  onClick={() => { setSerialPickerProduct(null); setSerialSearch(''); }}
+                  onClick={() => { setPickerProduct(null); setPickerSearch(''); }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
 
-              {/* Serial Search */}
+              {/* Search */}
               <div className="relative mt-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search serial numbers..."
-                  value={serialSearch}
-                  onChange={(e) => setSerialSearch(e.target.value)}
+                  placeholder={pickerProduct.has_serial_number ? "Search serial numbers..." : "Search by price or supplier..."}
+                  value={pickerSearch}
+                  onChange={(e) => setPickerSearch(e.target.value)}
                   autoFocus
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
             </div>
 
-            {/* Serial Number List */}
+            {/* Item List */}
             <div className="flex-1 overflow-y-auto p-4">
-              {filteredSerials.length > 0 ? (
+              {filteredPickerItems.length > 0 ? (
                 <div className="space-y-2">
-                  {(serialSearch.trim() === '' ? filteredSerials.slice(0, 5) : filteredSerials).map(item => (
+                  {(pickerSearch.trim() === '' ? filteredPickerItems.slice(0, 5) : filteredPickerItems).map(item => (
                     <button
                       key={item.inventory_id}
-                      onClick={() => addSerializedItem(serialPickerProduct, item)}
+                      onClick={() => {
+                        if (pickerProduct.has_serial_number) {
+                          addSerializedItem(pickerProduct, item);
+                        } else {
+                          addSpecificNonSerializedItem(pickerProduct, item);
+                        }
+                      }}
                       className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-left group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <Hash className="w-4 h-4 text-purple-600" />
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${pickerProduct.has_serial_number ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                          {pickerProduct.has_serial_number ? (
+                            <Hash className={`w-4 h-4 text-purple-600`} />
+                          ) : (
+                            <DollarSign className={`w-4 h-4 text-blue-600`} />
+                          )}
                         </div>
                         <div>
-                          <p className="font-mono text-sm font-semibold text-gray-900">{item.serial_number || 'No Serial'}</p>
-                          <p className="text-xs text-gray-500">{item.supplier_name}</p>
+                          <p className="font-mono text-sm font-semibold text-gray-900">
+                            {pickerProduct.has_serial_number ? (item.serial_number || 'No Serial') : `Price: ${formatC(item.selling_price)}`}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Supplier: {item.supplier_name}
+                            {!pickerProduct.has_serial_number && ` • In Stock: ${item.quantity}`}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end">
                         <p className="text-sm font-bold text-blue-600">{formatC(item.selling_price)}</p>
                         <p className="text-xs text-gray-400 group-hover:text-blue-500">Click to add</p>
                       </div>
                     </button>
                   ))}
-                  {serialSearch.trim() === '' && filteredSerials.length > 5 && (
+                  {pickerSearch.trim() === '' && filteredPickerItems.length > 5 && (
                     <p className="text-xs text-gray-400 text-center pt-2">
-                      Showing 5 of {filteredSerials.length} — use search to find more
+                      Showing 5 of {filteredPickerItems.length} — use search to find more
                     </p>
                   )}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Hash className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  {pickerProduct.has_serial_number ? (
+                     <Hash className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  ) : (
+                     <DollarSign className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  )}
                   <p className="text-gray-500 text-sm">
-                    {serialSearch.trim() !== '' ? 'No matching serial numbers found' : 'No available serial numbers'}
+                    {pickerSearch.trim() !== '' ? 'No matching items found' : 'No items available'}
                   </p>
                 </div>
               )}
@@ -1013,7 +1098,7 @@ export default function SalesPage() {
             {/* Modal Footer */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
               <p className="text-xs text-gray-500 text-center">
-                {getAvailableSerials(serialPickerProduct).length} serial number{getAvailableSerials(serialPickerProduct).length !== 1 ? 's' : ''} available
+                {getAvailableItems(pickerProduct).length} option{getAvailableItems(pickerProduct).length !== 1 ? 's' : ''} available
               </p>
             </div>
           </div>
