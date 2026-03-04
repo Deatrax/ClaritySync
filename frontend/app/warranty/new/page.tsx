@@ -84,6 +84,8 @@ export default function NewWarrantyClaimPage() {
     const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [searchingSerial, setSearchingSerial] = useState(false);
+    const [productMatches, setProductMatches] = useState<InventoryItem[]>([]);
+    const [allFetchedInventory, setAllFetchedInventory] = useState<InventoryItem[]>([]);
 
     // Step 2: Select replacement
     const [availableStock, setAvailableStock] = useState<InventoryItem[]>([]);
@@ -129,6 +131,7 @@ export default function NewWarrantyClaimPage() {
         setMessage(null);
         setFoundInventory(null);
         setWarrantyStatus(null);
+        setProductMatches([]);
         try {
             // Find inventory item by serial number
             const invRes = await fetch(`${API_BASE}/inventory?all=true`);
@@ -150,17 +153,24 @@ export default function NewWarrantyClaimPage() {
                          || allInv.find(i => i.sale_id === searchId);
                 }
             } else {
+                // Product mode: collect ALL matches and let the user pick
                 const searchLower = serialSearch.toLowerCase().trim();
-                found = allInv.find(i => i.product_name?.toLowerCase().includes(searchLower) && i.status === 'SOLD') 
-                     || allInv.find(i => i.product_name?.toLowerCase().includes(searchLower));
+                const matches = allInv.filter(i => i.product_name?.toLowerCase().includes(searchLower));
+                if (matches.length === 0) {
+                    setMessage({ type: 'error', text: `No inventory item found with product name "${serialSearch}".` });
+                    setSearchingSerial(false);
+                    return;
+                }
+                setAllFetchedInventory(allInv);
+                setProductMatches(matches);
+                setSearchingSerial(false);
+                return;  // user will pick one from the list
             }
 
             if (!found) {
                 // Fallback: fetch all inventory including sold — the API may need an 'all' param
                 // We'll just show not found
-                let typeText = 'serial number';
-                if (searchMode === 'product') typeText = 'product name';
-                else if (searchMode === 'invoice') typeText = 'invoice number';
+                const typeText = searchMode === 'invoice' ? 'invoice number' : 'serial number';
 
                 setMessage({ type: 'error', text: `No inventory item found with ${typeText} "${serialSearch}".` });
                 setSearchingSerial(false);
@@ -188,6 +198,32 @@ export default function NewWarrantyClaimPage() {
 
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message || 'Error searching' });
+        } finally {
+            setSearchingSerial(false);
+        }
+    };
+
+    const selectProductMatch = async (item: InventoryItem) => {
+        setSearchingSerial(true);
+        setMessage(null);
+        setProductMatches([]);
+        setFoundInventory(item);
+        try {
+            const wRes = await fetch(`${API_BASE}/warranty/check/${item.inventory_id}`);
+            const wData = await wRes.json();
+            setWarrantyStatus(wData);
+
+            const cfgRes = await fetch(`${API_BASE}/warranty/config`);
+            const cfgData: WarrantyConfig[] = cfgRes.ok ? await cfgRes.json() : [];
+            const cfg = cfgData.find(c => c.product_id === item.product_id);
+            setWarrantyConfig(cfg ?? null);
+            if (cfg) setCoverage(cfg.default_replacement_coverage);
+
+            const stockRes = await fetch(`${API_BASE}/inventory`);
+            const stockData: InventoryItem[] = stockRes.ok ? await stockRes.json() : [];
+            setAvailableStock(stockData);
+        } catch (err: any) {
+            setMessage({ type: 'error', text: err.message || 'Error loading item' });
         } finally {
             setSearchingSerial(false);
         }
@@ -359,9 +395,9 @@ export default function NewWarrantyClaimPage() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                     <input
                                         type="text"
-                                        placeholder={searchMode === 'serial' ? 'Enter serial number...' : searchMode === 'invoice' ? 'Enter invoice pattern...' : 'Enter product name...'}
+                                        placeholder={searchMode === 'serial' ? 'Enter serial number...' : searchMode === 'invoice' ? 'Enter invoice number...' : 'Enter product name...'}
                                         value={serialSearch}
-                                        onChange={e => setSerialSearch(e.target.value)}
+                                        onChange={e => { setSerialSearch(e.target.value); if (searchMode === 'product') setProductMatches([]); }}
                                         onKeyDown={e => e.key === 'Enter' && searchBySerial()}
                                         className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                     />
@@ -375,6 +411,35 @@ export default function NewWarrantyClaimPage() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Product match picker (product-name mode, multiple results) */}
+                        {productMatches.length > 0 && !foundInventory && (
+                            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                                <h3 className="font-semibold text-gray-900 mb-1">Select a Product</h3>
+                                <p className="text-sm text-gray-500 mb-3">{productMatches.length} matching item{productMatches.length !== 1 ? 's' : ''} found. Pick the one to warranty-claim.</p>
+                                <div className="space-y-2 max-h-72 overflow-y-auto">
+                                    {productMatches.map(item => (
+                                        <button
+                                            key={item.inventory_id}
+                                            onClick={() => selectProductMatch(item)}
+                                            className="w-full text-left border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-all"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="font-semibold text-gray-900 text-sm">{item.product_name}</p>
+                                                    {item.serial_number && <p className="text-xs font-mono text-gray-500 mt-0.5">S/N: {item.serial_number}</p>}
+                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                        Status: <span className={`font-medium ${item.status === 'SOLD' ? 'text-blue-600' : item.status === 'IN_STOCK' ? 'text-green-600' : 'text-gray-500'}`}>{item.status}</span>
+                                                        {item.sale_id ? ` · Invoice #${item.sale_id}` : ''}
+                                                    </p>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {foundInventory && warrantyStatus && (
                             <>
