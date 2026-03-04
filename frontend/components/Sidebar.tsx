@@ -15,7 +15,8 @@ import {
   ChevronRight,
   ArrowRightLeft,
   LogOut,
-  Briefcase
+  Briefcase,
+  ClipboardList
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
@@ -26,6 +27,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [modules, setModules] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -113,6 +115,30 @@ export default function Sidebar() {
           </div>
         )}
 
+        {/* Activity Log Group */}
+        {user?.role === 'ADMIN' && modules['ACTIVITY_LOG'] !== false && (
+          <div>
+            <button
+              onClick={() => setIsActivityLogOpen(!isActivityLogOpen)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActivityLogOpen || pathname.startsWith('/activity-log') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <ClipboardList size={20} />
+                <span>Activity Log</span>
+              </div>
+              {isActivityLogOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+
+            {isActivityLogOpen && (
+              <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-2">
+                <NavItem href="/activity-log/system" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="System Log" subItem active={pathname === '/activity-log/system'} />
+                <NavItem href="/activity-log/login" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Login Logs" subItem active={pathname === '/activity-log/login'} />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Settings Group */}
         <div>
           <button
@@ -136,8 +162,6 @@ export default function Sidebar() {
                   <NavItem href="/settings/general" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="General" subItem active={pathname === '/settings/general'} />
                   <NavItem href="/settings/admin-users" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Administrator Users" subItem active={pathname === '/settings/admin-users'} />
                   <NavItem href="/settings/modules" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Module Management" subItem active={pathname === '/settings/modules'} />
-                  <NavItem href="/settings/logs/system" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="System Log" subItem active={pathname === '/settings/logs/system'} />
-                  <NavItem href="/settings/logs/login" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Login Logs" subItem active={pathname === '/settings/logs/login'} />
                 </>
               )}
             </div>

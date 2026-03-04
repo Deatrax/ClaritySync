@@ -60,7 +60,7 @@ export default function LoginLogPage() {
             if (from) params.set('from', from);
             if (to) params.set('to', to);
 
-            const res = await fetch(`${API}/api/settings/logs/login?${params}`, {
+            const res = await fetch(`${API}/api/activity-log/login?${params}`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
             if (!res.ok) throw new Error('Failed to fetch');
@@ -99,7 +99,7 @@ export default function LoginLogPage() {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this login record?')) return;
         try {
-            const res = await fetch(`${API}/api/settings/logs/login/${id}`, {
+            const res = await fetch(`${API}/api/activity-log/login/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
@@ -118,7 +118,7 @@ export default function LoginLogPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
                         <Link href="/" className="hover:text-blue-600">Dashboard</Link>
-                        <span>/</span><span>Settings</span><span>/</span><span>Login Logs</span>
+                        <span>/</span><span>Activity Log</span><span>/</span><span>Login Logs</span>
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                         <LogIn className="w-6 h-6 text-blue-600" />

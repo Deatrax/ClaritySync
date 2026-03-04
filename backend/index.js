@@ -40,7 +40,7 @@ app.use('/api/banking/categories', transactionCategoryRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/settings/admin-users', adminUsersRoutes);
-app.use('/api/settings/logs', logsRoutes);
+app.use('/api/activity-log', logsRoutes);
 app.use('/api/settings/modules', moduleRoutes);
 app.use('/api/settings/general', settingsGeneralRoutes);
 
