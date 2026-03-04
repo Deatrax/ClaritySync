@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 import {
   ShoppingCart,
   Search,
@@ -59,13 +60,6 @@ interface Account {
   current_balance: string;
 }
 
-interface Employee {
-  employee_id: number;
-  name: string;
-  email: string;
-  role: string;
-}
-
 export default function SalesPage() {
   const [activeTab, setActiveTab] = useState<'new-sale' | 'search'>('new-sale');
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -77,8 +71,7 @@ export default function SalesPage() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const { user } = useAuth();
 
   // Form states
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
@@ -140,24 +133,6 @@ export default function SalesPage() {
     }
   };
 
-  const fetchEmployees = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/employees', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setEmployees(data);
-        if (data.length > 0) {
-          setSelectedEmployeeId(data[0].employee_id.toString());
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch employees', error);
-    }
-  };
-
   // Fetch data on mount
   useEffect(() => {
     const checkModule = async () => {
@@ -182,8 +157,8 @@ export default function SalesPage() {
     fetchInventory();
     fetchCustomers();
     fetchAccounts();
-    fetchEmployees();
   }, []);
+
 
   // Filter customers based on search
   useEffect(() => {
@@ -296,7 +271,6 @@ export default function SalesPage() {
         payment_method: paymentMethod,
         payment_status: paymentMethod === 'due' ? 'DUE' : 'PAID',
         account_id: paymentMethod === 'bank' ? selectedAccountId : null,
-        employee_id: paymentMethod === 'cash' ? selectedEmployeeId : null
       };
 
       const res = await fetch('http://localhost:5000/api/sales', {
@@ -564,22 +538,13 @@ export default function SalesPage() {
           <form onSubmit={handleCompleteSale} className="bg-white rounded-lg shadow p-4 space-y-4 mt-4">
             <h3 className="text-lg font-bold text-gray-900">Checkout</h3>
 
-            {/* Employee Selection (For Cash Tracking) */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900">Sold By (Employee)</label>
-              <select
-                value={selectedEmployeeId}
-                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required
-              >
-                <option value="">Select Employee</option>
-                {employees.map(emp => (
-                  <option key={emp.employee_id} value={emp.employee_id}>
-                    {emp.name} ({emp.role})
-                  </option>
-                ))}
-              </select>
+            {/* Sold By — auto from logged-in user */}
+            <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+              <User className="w-4 h-4 text-slate-500 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500 font-medium">Selling as</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{user?.email || 'Unknown'}</p>
+              </div>
             </div>
 
             {/* Customer Type */}

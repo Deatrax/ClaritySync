@@ -110,7 +110,8 @@ const createTransaction = async (req, res) => {
                 contact_id: contact_id ? parseInt(contact_id) : null,
                 category_id: category_id ? parseInt(category_id) : null,
                 description: description || null,
-                transaction_date: transaction_date || new Date().toISOString()
+                transaction_date: transaction_date || new Date().toISOString(),
+                created_by: req.user?.user_id || null
             }])
             .select();
 

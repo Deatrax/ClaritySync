@@ -70,9 +70,11 @@ const createSale = async (req, res) => {
         items,
         discount,
         total,
-        payment_method,
-        employee_id
+        payment_method
     } = req.body;
+
+    // Always derive employee from the authenticated user's JWT
+    const employee_id = req.user?.employee_id || null;
 
     try {
         // 1. Resolve target account ID (employee cash drawer or provided account)
