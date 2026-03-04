@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const salaryController = require('../controllers/salaryController');
-const verifyToken = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // Component type management (admin)
 router.get('/components', verifyToken, salaryController.getComponents);

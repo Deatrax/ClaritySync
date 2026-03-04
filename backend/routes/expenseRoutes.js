@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const expenseController = require('../controllers/expenseController');
-const verifyToken = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // /me must be before /:id routes
 router.get('/me', verifyToken, expenseController.getMyRequests);
