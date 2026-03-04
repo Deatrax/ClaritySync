@@ -107,23 +107,21 @@ export default function GeneralSettingsPage() {
         }
     };
 
+    const fileToDataUrl = (file: File): Promise<string> =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
     const handleUpload = async (asset: 'logo' | 'favicon' | 'banner', file: File) => {
         setUploading(asset);
         try {
-            const token = localStorage.getItem('token');
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await fetch(`http://localhost:5000/api/settings/general/upload/${asset}`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.details || data.error || 'Upload failed');
+            const dataUrl = await fileToDataUrl(file);
             const urlKey = asset === 'logo' ? 'logo_url' : asset === 'favicon' ? 'favicon_url' : 'social_banner_url';
-            setForm((f) => ({ ...f, [urlKey]: data.url }));
-            refetch();
-            showToast('success', `${asset.charAt(0).toUpperCase() + asset.slice(1)} uploaded!`);
+            setForm((f) => ({ ...f, [urlKey]: dataUrl }));
+            showToast('success', `${asset.charAt(0).toUpperCase() + asset.slice(1)} loaded! Click Save to persist.`);
         } catch (err: any) {
             showToast('error', err.message);
         } finally {
