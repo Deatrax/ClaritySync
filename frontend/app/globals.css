@@ -25,6 +25,46 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Fix input text color for readability */
+input,
+select,
+textarea {
+  color: #171717;
+  /* Default for light backgrounds */
+}
+
+/* Ensure inputs on dark backgrounds have light text */
+input[class*='bg-slate-'],
+select[class*='bg-slate-'],
+textarea[class*='bg-slate-'],
+input[class*='bg-gray-800'],
+select[class*='bg-gray-800'],
+textarea[class*='bg-gray-800'],
+input[class*='bg-gray-900'],
+select[class*='bg-gray-900'],
+textarea[class*='bg-gray-900'],
+input[class*='bg-indigo-900'],
+select[class*='bg-indigo-900'],
+textarea[class*='bg-indigo-900'],
+input.bg-slate-900,
+select.bg-slate-900,
+textarea.bg-slate-900,
+input.bg-slate-800,
+select.bg-slate-800,
+textarea.bg-slate-800 {
+  color: #ffffff !important;
+}
+
+/* Ensure white background inputs have dark text regardless of parent classes */
+input.bg-white,
+select.bg-white,
+textarea.bg-white,
+input.bg-gray-50,
+select.bg-gray-50,
+textarea.bg-gray-50 {
+  color: #171717 !important;
+}
+
 /* Hide scrollbar but keep scrollable */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Package,
   Search,
@@ -42,15 +42,30 @@ interface Account {
   current_balance: string;
 }
 
+interface Contact {
+  contact_id: number;
+  name: string;
+  contact_type: string;
+  phone: string | null;
+  email: string | null;
+}
+
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'add-stock'>('inventory');
   const [products, setProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+  // Supplier autocomplete state
+  const [supplierQuery, setSupplierQuery] = useState('');
+  const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Contact | null>(null);
+  const supplierRef = useRef<HTMLDivElement>(null);
 
   const [stockForm, setStockForm] = useState({
     product_id: '',
@@ -81,6 +96,36 @@ export default function InventoryPage() {
   };
 
   const { format: formatC } = useCurrency();
+
+  // Close supplier dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (supplierRef.current && !supplierRef.current.contains(e.target as Node)) {
+        setSupplierDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtered suggestions based on query and contact_type
+  const suppliersOnly = contacts.filter(c => c.contact_type === 'SUPPLIER' || c.contact_type === 'BOTH');
+  const supplierSuggestions = supplierQuery.trim() === ''
+    ? suppliersOnly
+    : suppliersOnly.filter(c => c.name.toLowerCase().includes(supplierQuery.toLowerCase()));
+
+  const handleSupplierSelect = (contact: Contact) => {
+    setSelectedSupplier(contact);
+    setSupplierQuery(contact.name);
+    setStockForm(prev => ({ ...prev, supplier_id: String(contact.contact_id) }));
+    setSupplierDropdownOpen(false);
+  };
+
+  const handleSupplierClear = () => {
+    setSelectedSupplier(null);
+    setSupplierQuery('');
+    setStockForm(prev => ({ ...prev, supplier_id: '' }));
+  };
 
   const fetchProducts = async () => {
     try {
@@ -135,6 +180,21 @@ export default function InventoryPage() {
     }
   };
 
+  const fetchContacts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/contacts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setContacts(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch contacts", error);
+    }
+  };
+
   useEffect(() => {
     const checkModule = async () => {
       try {
@@ -158,6 +218,7 @@ export default function InventoryPage() {
     fetchProducts();
     fetchInventory();
     fetchAccounts();
+    fetchContacts();
   }, []);
 
   if (moduleStatus === false) {
@@ -218,6 +279,8 @@ export default function InventoryPage() {
           account_id: '1'
         });
         setSerialNumbers([]);
+        setSelectedSupplier(null);
+        setSupplierQuery('');
         fetchInventory();
         setTimeout(() => setMessage(null), 3000);
       } else {
@@ -275,8 +338,8 @@ export default function InventoryPage() {
             <button
               onClick={() => setActiveTab('inventory')}
               className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'inventory'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
+                ? 'border-b-blue-600 text-blue-600 bg-blue-50'
+                : 'border-b-transparent text-gray-600 hover:text-gray-900'
                 }`}
             >
               <Package className="w-4 h-4 inline mr-2" />
@@ -285,8 +348,8 @@ export default function InventoryPage() {
             <button
               onClick={() => setActiveTab('add-stock')}
               className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'add-stock'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
+                ? 'border-b-blue-600 text-blue-600 bg-blue-50'
+                : 'border-b-transparent text-gray-600 hover:text-gray-900'
                 }`}
             >
               <Plus className="w-4 h-4 inline mr-2" />
@@ -358,10 +421,10 @@ export default function InventoryPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.status === 'IN_STOCK'
-                              ? 'bg-green-100 text-green-800'
-                              : item.status === 'SOLD'
-                                ? 'bg-gray-100 text-gray-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : item.status === 'SOLD'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-yellow-100 text-yellow-800'
                             }`}>
                             {item.status}
                           </span>
@@ -401,13 +464,66 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
-                  <input
-                    type="text"
-                    placeholder="Supplier ID or name"
-                    value={stockForm.supplier_id}
-                    onChange={(e) => setStockForm({ ...stockForm, supplier_id: e.target.value })}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                  />
+                  <div ref={supplierRef} className="relative">
+                    <div className="flex items-center">
+                      <input
+                        type="text"
+                        placeholder="Search supplier by name..."
+                        value={supplierQuery}
+                        onChange={(e) => {
+                          setSupplierQuery(e.target.value);
+                          setSupplierDropdownOpen(true);
+                          if (selectedSupplier && e.target.value !== selectedSupplier.name) {
+                            setSelectedSupplier(null);
+                            setStockForm(prev => ({ ...prev, supplier_id: '' }));
+                          }
+                        }}
+                        onFocus={() => setSupplierDropdownOpen(true)}
+                        className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 pr-8"
+                      />
+                      {supplierQuery && (
+                        <button
+                          type="button"
+                          onClick={handleSupplierClear}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Dropdown suggestions */}
+                    {supplierDropdownOpen && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {supplierSuggestions.length === 0 ? (
+                          <p className="px-4 py-3 text-sm text-gray-500 italic">No contacts found</p>
+                        ) : (
+                          supplierSuggestions.map(contact => (
+                            <button
+                              key={contact.contact_id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSupplierSelect(contact)}
+                              className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center justify-between gap-2"
+                            >
+                              <span className="text-sm font-medium text-gray-900">{contact.name}</span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${contact.contact_type === 'SUPPLIER'
+                                ? 'bg-purple-100 text-purple-700'
+                                : contact.contact_type === 'BOTH'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                {contact.contact_type}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {selectedSupplier && (
+                    <p className="mt-1 text-xs text-green-600">✓ Selected: {selectedSupplier.name}</p>
+                  )}
                 </div>
 
                 <div>
@@ -473,9 +589,8 @@ export default function InventoryPage() {
                     <label className="block text-sm font-medium text-blue-800">
                       Serial Numbers
                       {parsedQuantity > 0 && (
-                        <span className={`ml-2 text-xs font-normal ${
-                          serialCountMismatch ? 'text-red-600' : 'text-green-600'
-                        }`}>
+                        <span className={`ml-2 text-xs font-normal ${serialCountMismatch ? 'text-red-600' : 'text-green-600'
+                          }`}>
                           ({serialNumbers.filter(s => s.trim() !== '').length} / {parsedQuantity} entered)
                         </span>
                       )}
