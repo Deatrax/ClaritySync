@@ -15,7 +15,8 @@ import {
   X,
   AlertCircle,
   ShieldAlert,
-  Hash
+  Hash,
+  FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
@@ -97,6 +98,7 @@ export default function SalesPage() {
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const [saleComplete, setSaleComplete] = useState(false);
   const [receiptToken, setReceiptToken] = useState('');
+  const [completedSaleId, setCompletedSaleId] = useState<number | null>(null);
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
   // Serial number picker modal
@@ -439,6 +441,7 @@ export default function SalesPage() {
         setMessage({ type: 'success', text: 'Sale completed successfully!' });
         setSaleComplete(true);
         setReceiptToken(result.public_receipt_token || result.sale_id);
+        setCompletedSaleId(result.sale_id);
         setCart([]);
         setSelectedCustomer(null);
         setWalkinName('');
@@ -463,6 +466,7 @@ export default function SalesPage() {
   const resetSale = () => {
     setSaleComplete(false);
     setReceiptToken('');
+    setCompletedSaleId(null);
     setCart([]);
     setSelectedCustomer(null);
     setWalkinName('');
@@ -491,13 +495,15 @@ export default function SalesPage() {
           </div>
 
           <div className="space-y-3">
-            <button
-              onClick={handlePrintReceipt}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              Print Receipt
-            </button>
+            {completedSaleId && (
+              <Link
+                href={`/sales/${completedSaleId}`}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Show Invoice
+              </Link>
+            )}
             <button
               onClick={resetSale}
               className="w-full bg-gray-100 text-gray-900 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors"
