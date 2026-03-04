@@ -14,33 +14,44 @@ import {
   Printer,
   X,
   AlertCircle,
-  ShieldAlert
+  ShieldAlert,
+  Hash
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
 import { useCurrency } from '@/app/utils/currency';
 
-interface Product {
+/* ─── Types ──────────────────────────────────────────── */
+
+interface GroupedInventoryItem {
+  inventory_id: number;
+  serial_number: string | null;
+  quantity: number;
+  purchase_price: number;
+  selling_price: number;
+  supplier_name: string;
+  supplier_id: number;
+  status: string;
+}
+
+interface GroupedProduct {
   product_id: number;
   product_name: string;
   brand: string;
+  has_serial_number: boolean;
   category_name: string;
-  selling_price_estimate: number;
-}
-
-interface InventoryItem {
-  inventory_id: number;
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  selling_price: number;
-  supplier_name: string;
+  total_quantity: number;
+  total_value: number;
+  min_selling_price: number;
+  max_selling_price: number;
+  items: GroupedInventoryItem[];
 }
 
 interface CartItem {
   inventory_id: number;
   product_id: number;
   product_name: string;
+  serial_number: string | null;
   price: number;
   quantity: number;
   subtotal: number;
@@ -64,8 +75,7 @@ interface Account {
 
 export default function SalesPage() {
   const [activeTab, setActiveTab] = useState<'new-sale' | 'search'>('new-sale');
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [groupedProducts, setGroupedProducts] = useState<GroupedProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -88,19 +98,24 @@ export default function SalesPage() {
   const [receiptToken, setReceiptToken] = useState('');
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
+  // Serial number picker modal
+  const [serialPickerProduct, setSerialPickerProduct] = useState<GroupedProduct | null>(null);
+  const [serialSearch, setSerialSearch] = useState('');
+
   // Warranty expiry alerts — keyed by inventory_id
   const [warrantyAlerts, setWarrantyAlerts] = useState<Record<number, { product_name: string; days_remaining: number; expires_at: string }>>({});
 
-  // Fetch functions — defined before the useEffect that calls them
-  const fetchInventory = async () => {
+  /* ─── Data Fetching ────────────────────────────────── */
+
+  const fetchGroupedInventory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/inventory', {
+      const res = await fetch('http://localhost:5000/api/inventory/grouped', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setInventory(data);
+        setGroupedProducts(data);
       }
     } catch (error) {
       console.error('Failed to fetch inventory', error);
@@ -140,7 +155,6 @@ export default function SalesPage() {
     }
   };
 
-  // Fetch data on mount
   useEffect(() => {
     const checkModule = async () => {
       try {
@@ -161,12 +175,12 @@ export default function SalesPage() {
     };
 
     checkModule();
-    fetchInventory();
+    fetchGroupedInventory();
     fetchCustomers();
     fetchAccounts();
   }, []);
 
-  // Filter customers based on search
+  // Filter customers
   useEffect(() => {
     if (customerSearch.trim() === '') {
       setFilteredCustomers([]);
@@ -198,47 +212,148 @@ export default function SalesPage() {
     );
   }
 
-  const filteredInventory = inventory.filter(item =>
-    item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
+  /* ─── Product Filtering ────────────────────────────── */
+
+  const filteredProducts = groupedProducts.filter(product =>
+    product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Cart management
-  const addToCart = (item: InventoryItem) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(ci => ci.inventory_id === item.inventory_id);
-      if (existingItem) {
-        return prevCart.map(ci =>
-          ci.inventory_id === item.inventory_id
+  /* ─── Serial Number Picker Helpers ─────────────────── */
+
+  // Get items for this product that are NOT already in the cart
+  const getAvailableSerials = (product: GroupedProduct) => {
+    const cartInventoryIds = new Set(cart.map(ci => ci.inventory_id));
+    return product.items.filter(item =>
+      item.quantity > 0 && !cartInventoryIds.has(item.inventory_id)
+    );
+  };
+
+  const filteredSerials = serialPickerProduct
+    ? getAvailableSerials(serialPickerProduct).filter(item =>
+        serialSearch.trim() === '' ||
+        (item.serial_number && item.serial_number.toLowerCase().includes(serialSearch.toLowerCase()))
+      )
+    : [];
+
+  /* ─── Cart Management ──────────────────────────────── */
+
+  const addSerializedItem = (product: GroupedProduct, item: GroupedInventoryItem) => {
+    // Check warranty expiry in background
+    fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+      .then(r => r.json())
+      .then(w => {
+        if (w?.has_warranty && w?.is_expiring_soon) {
+          setWarrantyAlerts(prev => ({
+            ...prev,
+            [item.inventory_id]: {
+              product_name: product.product_name,
+              days_remaining: w.days_remaining,
+              expires_at: w.warranty_expires_at
+            }
+          }));
+        }
+      })
+      .catch(() => {});
+
+    setCart(prev => [...prev, {
+      inventory_id: item.inventory_id,
+      product_id: product.product_id,
+      product_name: product.product_name,
+      serial_number: item.serial_number,
+      price: item.selling_price,
+      quantity: 1,
+      subtotal: item.selling_price
+    }]);
+
+    // Close modal if no more available serials
+    if (serialPickerProduct) {
+      const remaining = getAvailableSerials(serialPickerProduct).filter(
+        i => i.inventory_id !== item.inventory_id
+      );
+      if (remaining.length === 0) {
+        setSerialPickerProduct(null);
+        setSerialSearch('');
+      }
+    }
+  };
+
+  const addNonSerializedItem = (product: GroupedProduct) => {
+    // Find the first available inventory item
+    const cartInventoryIds = new Set(cart.map(ci => ci.inventory_id));
+
+    // Check if we already have a cart item for any inventory of this product
+    const existingCartItem = cart.find(ci => ci.product_id === product.product_id);
+
+    if (existingCartItem) {
+      // Find the inventory item this cart item is using
+      const invItem = product.items.find(i => i.inventory_id === existingCartItem.inventory_id);
+      if (invItem && existingCartItem.quantity < invItem.quantity) {
+        // Increment the existing cart item quantity
+        setCart(prev => prev.map(ci =>
+          ci.inventory_id === existingCartItem.inventory_id
             ? { ...ci, quantity: ci.quantity + 1, subtotal: (ci.quantity + 1) * ci.price }
             : ci
-        );
+        ));
+        return;
       }
-      // Check warranty expiry in background
-      fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
-        .then(r => r.json())
-        .then(w => {
-          if (w?.has_warranty && w?.is_expiring_soon) {
-            setWarrantyAlerts(prev => ({
-              ...prev,
-              [item.inventory_id]: {
-                product_name: item.product_name,
-                days_remaining: w.days_remaining,
-                expires_at: w.warranty_expires_at
+    }
+
+    // Otherwise, find the first inventory item with available quantity
+    for (const item of product.items) {
+      const cartItem = cart.find(ci => ci.inventory_id === item.inventory_id);
+      const cartQty = cartItem ? cartItem.quantity : 0;
+      if (item.quantity > cartQty) {
+        if (cartItem) {
+          // Increment
+          setCart(prev => prev.map(ci =>
+            ci.inventory_id === item.inventory_id
+              ? { ...ci, quantity: ci.quantity + 1, subtotal: (ci.quantity + 1) * ci.price }
+              : ci
+          ));
+        } else {
+          // Check warranty in background
+          fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+            .then(r => r.json())
+            .then(w => {
+              if (w?.has_warranty && w?.is_expiring_soon) {
+                setWarrantyAlerts(prev => ({
+                  ...prev,
+                  [item.inventory_id]: {
+                    product_name: product.product_name,
+                    days_remaining: w.days_remaining,
+                    expires_at: w.warranty_expires_at
+                  }
+                }));
               }
-            }));
-          }
-        })
-        .catch(() => { });
-      return [...prevCart, {
-        inventory_id: item.inventory_id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        price: item.selling_price,
-        quantity: 1,
-        subtotal: item.selling_price
-      }];
-    });
+            })
+            .catch(() => {});
+
+          // Add new cart item
+          setCart(prev => [...prev, {
+            inventory_id: item.inventory_id,
+            product_id: product.product_id,
+            product_name: product.product_name,
+            serial_number: null,
+            price: item.selling_price,
+            quantity: 1,
+            subtotal: item.selling_price
+          }]);
+        }
+        return;
+      }
+    }
+  };
+
+  const handleAddToCart = (product: GroupedProduct) => {
+    if (product.has_serial_number) {
+      // Open serial number picker modal
+      setSerialPickerProduct(product);
+      setSerialSearch('');
+    } else {
+      addNonSerializedItem(product);
+    }
   };
 
   const updateQuantity = (inventoryId: number, newQuantity: number) => {
@@ -260,10 +375,21 @@ export default function SalesPage() {
     setWarrantyAlerts(prev => { const n = { ...prev }; delete n[inventoryId]; return n; });
   };
 
-  // Calculations
+  // Get available quantity for a cart item (to cap the +/- controls)
+  const getMaxQty = (cartItem: CartItem) => {
+    const product = groupedProducts.find(p => p.product_id === cartItem.product_id);
+    if (!product) return cartItem.quantity;
+    if (product.has_serial_number) return 1; // serialized = always 1
+    const inv = product.items.find(i => i.inventory_id === cartItem.inventory_id);
+    return inv ? inv.quantity : cartItem.quantity;
+  };
+
+  /* ─── Calculations ─────────────────────────────────── */
   const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
-  const tax = subtotal * 0.1; // 10% tax
+  const tax = subtotal * 0.1;
   const total = subtotal + tax - discount;
+
+  /* ─── Sale Submission ──────────────────────────────── */
 
   const handleCompleteSale = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,7 +425,7 @@ export default function SalesPage() {
       const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:5000/api/sales', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -340,9 +466,11 @@ export default function SalesPage() {
     setPaymentMethod('cash');
     setDiscount(0);
     setSearchTerm('');
+    fetchGroupedInventory();
   };
 
-  // Success Screen
+  /* ─── Success Screen ───────────────────────────────── */
+
   if (saleComplete) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
@@ -378,6 +506,8 @@ export default function SalesPage() {
     );
   }
 
+  /* ─── Main Render ──────────────────────────────────── */
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -409,7 +539,7 @@ export default function SalesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search products by name or supplier..."
+                placeholder="Search products by name, brand, or category..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -417,42 +547,67 @@ export default function SalesPage() {
             </div>
           </div>
 
-          {/* Products Grid */}
+          {/* Products Grid — Aggregated by Product */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredInventory.length > 0 ? (
-              filteredInventory.map(item => (
-                <div
-                  key={item.inventory_id}
-                  className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-4"
-                >
-                  <div className="mb-3">
-                    <h3 className="font-semibold text-gray-900 text-sm">{item.product_name}</h3>
-                    <p className="text-xs text-gray-500">{item.supplier_name}</p>
-                  </div>
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map(product => {
+                // Calculate how many are already in the cart for this product
+                const cartQtyForProduct = cart
+                  .filter(ci => ci.product_id === product.product_id)
+                  .reduce((sum, ci) => sum + ci.quantity, 0);
+                const availableQty = product.total_quantity - cartQtyForProduct;
 
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-lg font-bold text-blue-600">{formatC(item.selling_price)}</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded ${item.quantity > 0
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                      }`}>
-                      {item.quantity} in stock
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => addToCart(item)}
-                    disabled={item.quantity === 0}
-                    className={`w-full py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${item.quantity > 0
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
+                return (
+                  <div
+                    key={product.product_id}
+                    className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-4"
                   >
-                    <Plus className="w-4 h-4" />
-                    Add to Cart
-                  </button>
-                </div>
-              ))
+                    <div className="mb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 text-sm">{product.product_name}</h3>
+                          <p className="text-xs text-gray-500">{product.brand || product.category_name}</p>
+                        </div>
+                        {product.has_serial_number && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">
+                            <Hash className="w-2.5 h-2.5" />
+                            Serial
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-lg font-bold text-blue-600">
+                        {product.min_selling_price === product.max_selling_price
+                          ? formatC(product.min_selling_price)
+                          : `${formatC(product.min_selling_price)} – ${formatC(product.max_selling_price)}`
+                        }
+                      </span>
+                      <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                        availableQty > 0
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {availableQty} available
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleAddToCart(product)}
+                      disabled={availableQty <= 0}
+                      className={`w-full py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                        availableQty > 0
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <Plus className="w-4 h-4" />
+                      {product.has_serial_number ? 'Select Serial Number' : 'Add to Cart'}
+                    </button>
+                  </div>
+                );
+              })
             ) : (
               <div className="col-span-2 bg-white rounded-lg shadow p-8 text-center">
                 <p className="text-gray-500">No products found</p>
@@ -493,14 +648,21 @@ export default function SalesPage() {
             </h2>
 
             {/* Cart Items */}
-            <div className="space-y-3 max-h-64 overflow-y-auto">
+            <div className="space-y-3 max-h-80 overflow-y-auto">
               {cart.length > 0 ? (
                 cart.map(item => (
                   <div key={item.inventory_id} className="border border-gray-200 rounded-lg p-3">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900 text-sm">{item.product_name}</p>
-                        <p className="text-xs text-gray-500">{formatC(item.price)} each</p>
+                        {item.serial_number ? (
+                          <p className="text-xs text-purple-600 font-mono mt-0.5 flex items-center gap-1">
+                            <Hash className="w-3 h-3" />
+                            S/N: {item.serial_number}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-500">{formatC(item.price)} each</p>
+                        )}
                       </div>
                       <button
                         onClick={() => removeFromCart(item.inventory_id)}
@@ -511,25 +673,34 @@ export default function SalesPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => updateQuantity(item.inventory_id, item.quantity - 1)}
-                        className="bg-gray-100 p-1 rounded hover:bg-gray-200"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateQuantity(item.inventory_id, parseInt(e.target.value) || 0)}
-                        className="w-12 text-center border border-gray-300 rounded py-1 text-sm"
-                        min="1"
-                      />
-                      <button
-                        onClick={() => updateQuantity(item.inventory_id, item.quantity + 1)}
-                        className="bg-gray-100 p-1 rounded hover:bg-gray-200"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                      {item.serial_number ? (
+                        // Serialized item: quantity is always 1, no controls
+                        <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">Qty: 1</span>
+                      ) : (
+                        // Non-serialized: quantity controls
+                        <>
+                          <button
+                            onClick={() => updateQuantity(item.inventory_id, item.quantity - 1)}
+                            className="bg-gray-100 p-1 rounded hover:bg-gray-200"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateQuantity(item.inventory_id, parseInt(e.target.value) || 0)}
+                            className="w-12 text-center border border-gray-300 rounded py-1 text-sm"
+                            min="1"
+                            max={getMaxQty(item)}
+                          />
+                          <button
+                            onClick={() => updateQuantity(item.inventory_id, Math.min(item.quantity + 1, getMaxQty(item)))}
+                            className="bg-gray-100 p-1 rounded hover:bg-gray-200"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
                       <span className="ml-auto text-sm font-semibold text-gray-900">
                         {formatC(item.subtotal)}
                       </span>
@@ -575,7 +746,7 @@ export default function SalesPage() {
           <form onSubmit={handleCompleteSale} className="bg-white rounded-lg shadow p-4 space-y-4 mt-4">
             <h3 className="text-lg font-bold text-gray-900">Checkout</h3>
 
-            {/* Sold By — auto from logged-in user */}
+            {/* Sold By */}
             <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
               <User className="w-4 h-4 text-slate-500 shrink-0" />
               <div className="min-w-0">
@@ -635,7 +806,6 @@ export default function SalesPage() {
                   />
                 </div>
 
-                {/* Filtered Customers Dropdown */}
                 {filteredCustomers.length > 0 && (
                   <div className="border border-gray-300 rounded-lg max-h-32 overflow-y-auto">
                     {filteredCustomers.map(customer => (
@@ -656,7 +826,6 @@ export default function SalesPage() {
                   </div>
                 )}
 
-                {/* Selected Customer */}
                 {selectedCustomer && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-sm">
@@ -676,40 +845,20 @@ export default function SalesPage() {
               <label className="text-sm font-semibold text-gray-900">Payment Method</label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="cash"
-                    checked={paymentMethod === 'cash'}
-                    onChange={() => setPaymentMethod('cash')}
-                    className="w-4 h-4"
-                  />
+                  <input type="radio" name="payment-method" value="cash"
+                    checked={paymentMethod === 'cash'} onChange={() => setPaymentMethod('cash')} className="w-4 h-4" />
                   <span className="text-sm">Cash</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="bank"
-                    checked={paymentMethod === 'bank'}
-                    onChange={() => setPaymentMethod('bank')}
-                    className="w-4 h-4"
-                  />
+                  <input type="radio" name="payment-method" value="bank"
+                    checked={paymentMethod === 'bank'} onChange={() => setPaymentMethod('bank')} className="w-4 h-4" />
                   <span className="text-sm">Bank Transfer</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="payment-method"
-                    value="due"
-                    checked={paymentMethod === 'due'}
-                    onChange={() => setPaymentMethod('due')}
-                    className="w-4 h-4"
-                    disabled={customerType === 'walk-in'}
-                  />
-                  <span className={`text-sm ${customerType === 'walk-in' ? 'text-gray-400' : ''}`}>
-                    Due/Ledger
-                  </span>
+                  <input type="radio" name="payment-method" value="due"
+                    checked={paymentMethod === 'due'} onChange={() => setPaymentMethod('due')} className="w-4 h-4"
+                    disabled={customerType === 'walk-in'} />
+                  <span className={`text-sm ${customerType === 'walk-in' ? 'text-gray-400' : ''}`}>Due/Ledger</span>
                 </label>
               </div>
             </div>
@@ -744,10 +893,11 @@ export default function SalesPage() {
             <button
               type="submit"
               disabled={loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)}
-              className={`w-full py-3 rounded-lg font-semibold transition-colors text-white flex items-center justify-center gap-2 ${loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700'
-                }`}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors text-white flex items-center justify-center gap-2 ${
+                loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+              }`}
             >
               <DollarSign className="w-5 h-5" />
               {loading ? 'Processing...' : 'Complete Sale'}
@@ -755,6 +905,90 @@ export default function SalesPage() {
           </form>
         </div>
       </div>
+
+      {/* ─── Serial Number Picker Modal ──────────────── */}
+      {serialPickerProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Select Serial Number</h3>
+                  <p className="text-sm text-gray-500 mt-1">{serialPickerProduct.product_name}</p>
+                </div>
+                <button
+                  onClick={() => { setSerialPickerProduct(null); setSerialSearch(''); }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Serial Search */}
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search serial numbers..."
+                  value={serialSearch}
+                  onChange={(e) => setSerialSearch(e.target.value)}
+                  autoFocus
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Serial Number List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {filteredSerials.length > 0 ? (
+                <div className="space-y-2">
+                  {(serialSearch.trim() === '' ? filteredSerials.slice(0, 5) : filteredSerials).map(item => (
+                    <button
+                      key={item.inventory_id}
+                      onClick={() => addSerializedItem(serialPickerProduct, item)}
+                      className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-left group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <Hash className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="font-mono text-sm font-semibold text-gray-900">{item.serial_number || 'No Serial'}</p>
+                          <p className="text-xs text-gray-500">{item.supplier_name}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-blue-600">{formatC(item.selling_price)}</p>
+                        <p className="text-xs text-gray-400 group-hover:text-blue-500">Click to add</p>
+                      </div>
+                    </button>
+                  ))}
+                  {serialSearch.trim() === '' && filteredSerials.length > 5 && (
+                    <p className="text-xs text-gray-400 text-center pt-2">
+                      Showing 5 of {filteredSerials.length} — use search to find more
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Hash className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">
+                    {serialSearch.trim() !== '' ? 'No matching serial numbers found' : 'No available serial numbers'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+              <p className="text-xs text-gray-500 text-center">
+                {getAvailableSerials(serialPickerProduct).length} serial number{getAvailableSerials(serialPickerProduct).length !== 1 ? 's' : ''} available
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
