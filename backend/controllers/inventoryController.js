@@ -3,7 +3,8 @@ const supabase = require('../db');
 // 3. Inventory
 const getInventory = async (req, res) => {
     try {
-        const { data, error } = await supabase.from('inventory')
+        const fetchAll = req.query.all === 'true';
+        let query = supabase.from('inventory')
             .select(`
                 inventory_id,
                 product_id,
@@ -14,10 +15,15 @@ const getInventory = async (req, res) => {
                 serial_number,
                 status,
                 product(product_name),
-                contacts(name)
-            `)
-            .eq('status', 'IN_STOCK')
-            .order('inventory_id', { ascending: false });
+                contacts(name),
+                sale_item(sale_id)
+            `);
+
+        if (!fetchAll) {
+            query = query.eq('status', 'IN_STOCK');
+        }
+
+        const { data, error } = await query.order('inventory_id', { ascending: false });
 
         if (error) throw error;
 
@@ -25,7 +31,8 @@ const getInventory = async (req, res) => {
         const inventory = data?.map(i => ({
             ...i,
             product_name: i.product?.product_name || 'Unknown',
-            supplier_name: i.contacts?.name || 'Unknown Supplier'
+            supplier_name: i.contacts?.name || 'Unknown Supplier',
+            sale_id: i.sale_item && i.sale_item.length > 0 ? i.sale_item[0].sale_id : null
         })) || [];
 
         res.json(inventory);

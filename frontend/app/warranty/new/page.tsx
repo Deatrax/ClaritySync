@@ -47,6 +47,7 @@ interface InventoryItem {
     serial_number: string | null;
     supplier_name: string;
     status: string;
+    sale_id?: number | null;
 }
 
 interface Contact {
@@ -72,7 +73,7 @@ export default function NewWarrantyClaimPage() {
     const [loading, setLoading] = useState(false);
 
     // Step 1: Find original item
-    const [searchMode, setSearchMode] = useState<'serial' | 'product'>('serial');
+    const [searchMode, setSearchMode] = useState<'serial' | 'invoice' | 'product'>('serial');
     const [serialSearch, setSerialSearch] = useState('');
     const [foundInventory, setFoundInventory] = useState<InventoryItem | null>(null);
     const [warrantyStatus, setWarrantyStatus] = useState<WarrantyStatus | null>(null);
@@ -138,13 +139,30 @@ export default function NewWarrantyClaimPage() {
             // Best approach: find by serial in the inventory list (all statuses)
             // For now: search all inventory (we'll call warranty/check on found item)
 
-            // First try to match from the available (IN_STOCK) list
-            let found = allInv.find(i => i.serial_number?.toLowerCase() === serialSearch.toLowerCase().trim());
+            let found;
+            if (searchMode === 'serial') {
+                found = allInv.find(i => i.serial_number?.toLowerCase() === serialSearch.toLowerCase().trim());
+            } else if (searchMode === 'invoice') {
+                const searchId = parseInt(serialSearch.trim(), 10);
+                if (!isNaN(searchId)) {
+                    // Try to find a sold item with this invoice first, if not any item
+                    found = allInv.find(i => i.sale_id === searchId && i.status === 'SOLD') 
+                         || allInv.find(i => i.sale_id === searchId);
+                }
+            } else {
+                const searchLower = serialSearch.toLowerCase().trim();
+                found = allInv.find(i => i.product_name?.toLowerCase().includes(searchLower) && i.status === 'SOLD') 
+                     || allInv.find(i => i.product_name?.toLowerCase().includes(searchLower));
+            }
 
             if (!found) {
                 // Fallback: fetch all inventory including sold — the API may need an 'all' param
                 // We'll just show not found
-                setMessage({ type: 'error', text: `No inventory item found with serial number "${serialSearch}".` });
+                let typeText = 'serial number';
+                if (searchMode === 'product') typeText = 'product name';
+                else if (searchMode === 'invoice') typeText = 'invoice number';
+
+                setMessage({ type: 'error', text: `No inventory item found with ${typeText} "${serialSearch}".` });
                 setSearchingSerial(false);
                 return;
             }
@@ -315,12 +333,18 @@ export default function NewWarrantyClaimPage() {
                         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                             <h2 className="text-base font-semibold text-gray-900 mb-4">Step 1 — Find Warranty Item</h2>
 
-                            <div className="flex gap-2 mb-4">
+                            <div className="flex flex-wrap gap-2 mb-4">
                                 <button
                                     onClick={() => setSearchMode('serial')}
                                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${searchMode === 'serial' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                                 >
                                     By Serial Number
+                                </button>
+                                <button
+                                    onClick={() => setSearchMode('invoice')}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${searchMode === 'invoice' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    By Invoice Number
                                 </button>
                                 <button
                                     onClick={() => setSearchMode('product')}
@@ -335,7 +359,7 @@ export default function NewWarrantyClaimPage() {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                     <input
                                         type="text"
-                                        placeholder={searchMode === 'serial' ? 'Enter serial number...' : 'Enter product name...'}
+                                        placeholder={searchMode === 'serial' ? 'Enter serial number...' : searchMode === 'invoice' ? 'Enter invoice pattern...' : 'Enter product name...'}
                                         value={serialSearch}
                                         onChange={e => setSerialSearch(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && searchBySerial()}
