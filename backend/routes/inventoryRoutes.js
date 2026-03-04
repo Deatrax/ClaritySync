@@ -4,6 +4,7 @@ const inventoryController = require('../controllers/inventoryController');
 const { checkModule } = require('../middleware/moduleMiddleware');
 
 router.get('/', checkModule('INVENTORY'), inventoryController.getInventory);
+router.get('/grouped', checkModule('INVENTORY'), inventoryController.getGroupedInventory);
 router.post('/add', checkModule('INVENTORY'), inventoryController.addStock);
 
 module.exports = router;

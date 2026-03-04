@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useEffect, useState } from 'react';
 import {
   Package,
@@ -8,6 +9,9 @@ import {
   AlertCircle,
   Trash2,
   X,
+  ChevronDown,
+  ChevronRight,
+  Layers,
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
@@ -23,17 +27,28 @@ interface Product {
   category_name: string;
 }
 
-interface InventoryItem {
+interface GroupedInventoryItem {
   inventory_id: number;
-  product_id: number;
-  product_name: string;
-  supplier_id: number;
-  supplier_name: string;
+  serial_number: string | null;
   quantity: number;
   purchase_price: number;
   selling_price: number;
-  serial_number: string;
+  supplier_name: string;
+  supplier_id: number;
   status: string;
+}
+
+interface GroupedInventory {
+  product_id: number;
+  product_name: string;
+  brand: string;
+  has_serial_number: boolean;
+  category_name: string;
+  total_quantity: number;
+  total_value: number;
+  min_selling_price: number;
+  max_selling_price: number;
+  items: GroupedInventoryItem[];
 }
 
 interface Account {
@@ -44,13 +59,23 @@ interface Account {
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'add-stock'>('inventory');
+
+  // Read ?tab= URL param on mount so deep-links like /inventory?tab=add-stock work
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'add-stock') {
+      setActiveTab('add-stock');
+    }
+  }, []);
+
   const [products, setProducts] = useState<Product[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [groupedInventory, setGroupedInventory] = useState<GroupedInventory[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+  const [expandedProducts, setExpandedProducts] = useState<Set<number>>(new Set());
 
   const [stockForm, setStockForm] = useState({
     product_id: '',
@@ -82,6 +107,18 @@ export default function InventoryPage() {
 
   const { format: formatC } = useCurrency();
 
+  const toggleExpand = (productId: number) => {
+    setExpandedProducts(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -102,15 +139,15 @@ export default function InventoryPage() {
     }
   };
 
-  const fetchInventory = async () => {
+  const fetchGroupedInventory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/inventory', {
+      const res = await fetch('http://localhost:5000/api/inventory/grouped', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setInventory(data);
+        setGroupedInventory(data);
       }
     } catch (error) {
       console.error("Failed to fetch inventory", error);
@@ -156,7 +193,7 @@ export default function InventoryPage() {
 
     checkModule();
     fetchProducts();
-    fetchInventory();
+    fetchGroupedInventory();
     fetchAccounts();
   }, []);
 
@@ -218,7 +255,7 @@ export default function InventoryPage() {
           account_id: '1'
         });
         setSerialNumbers([]);
-        fetchInventory();
+        fetchGroupedInventory();
         setTimeout(() => setMessage(null), 3000);
       } else {
         const error = await res.json();
@@ -232,9 +269,16 @@ export default function InventoryPage() {
     }
   };
 
-  const filteredInventory = inventory.filter(i =>
-    i.product_name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredGrouped = groupedInventory.filter(g =>
+    g.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    g.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    g.category_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Summary stats
+  const totalProducts = filteredGrouped.length;
+  const totalUnits = filteredGrouped.reduce((s, g) => s + g.total_quantity, 0);
+  const totalStockValue = filteredGrouped.reduce((s, g) => s + g.total_value, 0);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -295,24 +339,42 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* Tab Content: Current Stock */}
+        {/* Tab Content: Current Stock — Grouped View */}
         {activeTab === 'inventory' && (
           <div>
-            <div className="mb-6">
+            {/* Search + Summary Stats */}
+            <div className="mb-6 space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Search inventory by product name..."
+                  placeholder="Search by product name, brand, or category..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
               </div>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <p className="text-xs text-gray-500 uppercase font-medium">Products</p>
+                  <p className="text-2xl font-bold text-gray-900">{totalProducts}</p>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <p className="text-xs text-gray-500 uppercase font-medium">Total Units</p>
+                  <p className="text-2xl font-bold text-blue-600">{totalUnits}</p>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <p className="text-xs text-gray-500 uppercase font-medium">Stock Value</p>
+                  <p className="text-2xl font-bold text-green-600">{formatC(totalStockValue)}</p>
+                </div>
+              </div>
             </div>
 
+            {/* Grouped Inventory Table */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              {filteredInventory.length === 0 ? (
+              {filteredGrouped.length === 0 ? (
                 <div className="p-12 text-center text-gray-500 flex flex-col items-center">
                   <Package className="w-12 h-12 text-gray-300 mb-4" />
                   <p className="text-lg font-medium text-gray-900">No stock available</p>
@@ -322,52 +384,133 @@ export default function InventoryPage() {
                 <table className="w-full text-left text-sm text-gray-600">
                   <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-medium">
                     <tr>
-                      <th className="px-6 py-4">Product Name</th>
-                      <th className="px-6 py-4">Supplier</th>
-                      <th className="px-6 py-4 text-center">Quantity</th>
-                      <th className="px-6 py-4 text-right">Purchase Price</th>
+                      <th className="px-6 py-4 w-8"></th>
+                      <th className="px-6 py-4">Product</th>
+                      <th className="px-6 py-4">Category</th>
+                      <th className="px-6 py-4 text-center">In Stock</th>
                       <th className="px-6 py-4 text-right">Selling Price</th>
-                      <th className="px-6 py-4">Serial</th>
-                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Stock Value</th>
+                      <th className="px-6 py-4 text-center">Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filteredInventory.map((item) => (
-                      <tr key={item.inventory_id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <span className="text-gray-900 font-semibold text-base">{item.product_name}</span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">{item.supplier_name}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                            {item.quantity}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                          {formatC(parseFloat(String(item.purchase_price)))}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold text-green-600">
-                          {formatC(parseFloat(String(item.selling_price)))}
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          {item.serial_number ? (
-                            <span className="text-gray-600 font-mono text-xs">{item.serial_number}</span>
-                          ) : (
-                            <span className="text-gray-400">—</span>
+                    {filteredGrouped.map((group) => {
+                      const isExpanded = expandedProducts.has(group.product_id);
+                      return (
+                        <React.Fragment key={group.product_id}>
+                          {/* Product Group Row */}
+                          <tr
+                            className="hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => toggleExpand(group.product_id)}
+                          >
+                            <td className="px-6 py-4">
+                              {isExpanded
+                                ? <ChevronDown className="w-4 h-4 text-gray-400" />
+                                : <ChevronRight className="w-4 h-4 text-gray-400" />
+                              }
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <span className="text-gray-900 font-semibold text-base">{group.product_name}</span>
+                                {group.brand && (
+                                  <span className="ml-2 text-xs text-gray-400">{group.brand}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                {group.category_name}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
+                                {group.total_quantity}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-semibold text-green-600">
+                              {group.min_selling_price === group.max_selling_price
+                                ? formatC(group.min_selling_price)
+                                : `${formatC(group.min_selling_price)} – ${formatC(group.max_selling_price)}`
+                              }
+                            </td>
+                            <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                              {formatC(group.total_value)}
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              {group.has_serial_number ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                                  Serialized
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                                  Bulk
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* Expanded Detail Rows */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={7} className="p-0">
+                                <div className="bg-slate-50 border-t border-b border-slate-200">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="text-xs text-slate-500 uppercase">
+                                        <th className="pl-16 pr-4 py-3 text-left">
+                                          {group.has_serial_number ? 'Serial Number' : 'Batch'}
+                                        </th>
+                                        <th className="px-4 py-3 text-left">Supplier</th>
+                                        <th className="px-4 py-3 text-center">Qty</th>
+                                        <th className="px-4 py-3 text-right">Purchase</th>
+                                        <th className="px-4 py-3 text-right">Selling</th>
+                                        <th className="px-4 py-3 text-center">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200">
+                                      {group.items.map((item) => (
+                                        <tr key={item.inventory_id} className="hover:bg-slate-100 transition-colors">
+                                          <td className="pl-16 pr-4 py-3">
+                                            {item.serial_number ? (
+                                              <span className="font-mono text-xs bg-white border border-slate-200 rounded px-2 py-0.5">
+                                                {item.serial_number}
+                                              </span>
+                                            ) : (
+                                              <span className="text-slate-400 text-xs">#{item.inventory_id}</span>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-3 text-slate-600">{item.supplier_name}</td>
+                                          <td className="px-4 py-3 text-center">
+                                            <span className="text-sm font-medium">{item.quantity}</span>
+                                          </td>
+                                          <td className="px-4 py-3 text-right text-slate-600">
+                                            {formatC(item.purchase_price)}
+                                          </td>
+                                          <td className="px-4 py-3 text-right font-medium text-green-600">
+                                            {formatC(item.selling_price)}
+                                          </td>
+                                          <td className="px-4 py-3 text-center">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                              item.status === 'IN_STOCK'
+                                                ? 'bg-green-100 text-green-800'
+                                                : item.status === 'SOLD'
+                                                  ? 'bg-gray-100 text-gray-800'
+                                                  : 'bg-yellow-100 text-yellow-800'
+                                            }`}>
+                                              {item.status}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.status === 'IN_STOCK'
-                              ? 'bg-green-100 text-green-800'
-                              : item.status === 'SOLD'
-                                ? 'bg-gray-100 text-gray-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                            {item.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

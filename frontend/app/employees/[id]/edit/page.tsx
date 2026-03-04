@@ -7,7 +7,14 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { ProtectedRoute } from '../../../components/ProtectedRoute';
 
-const ROLES = ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'INVENTORY_STAFF', 'CASHIER', 'EMPLOYEE'];
+const API = 'http://localhost:5000';
+
+interface DynamicRole {
+    role_id: number;
+    role_key: string;
+    display_name: string;
+    is_active: boolean;
+}
 
 interface FormState {
     name: string;
@@ -103,11 +110,16 @@ function EditEmployeeContent() {
     const [serverError, setServerError] = useState<string | null>(null);
     const [notFound, setNotFound] = useState(false);
     const [employeeTypes, setEmployeeTypes] = useState<EmployeeType[]>([]);
+    const [dynamicRoles, setDynamicRoles] = useState<DynamicRole[]>([]);
 
     useEffect(() => {
         if (!token) return;
         fetch('/api/employee-types', { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.json()).then(setEmployeeTypes).catch(() => { });
+        fetch(`${API}/api/settings/roles`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.json())
+            .then((data: DynamicRole[]) => setDynamicRoles(data.filter(r => r.is_active)))
+            .catch(() => { });
     }, [token]);
 
     useEffect(() => {
@@ -279,7 +291,10 @@ function EditEmployeeContent() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                         <select name="role" value={form.role} onChange={handleChange}
                             className="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            {ROLES.map((r) => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+                            {dynamicRoles.length > 0
+                                ? dynamicRoles.map(r => <option key={r.role_key} value={r.role_key}>{r.display_name}</option>)
+                                : <option value={form.role}>{form.role.replace(/_/g, ' ')}</option>
+                            }
                         </select>
                     </div>
 

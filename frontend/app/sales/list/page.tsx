@@ -10,6 +10,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 interface Sale {
     sale_id: number;
     contact_id: number | null;
+    customer_name: string | null;
     total_amount: number;
     discount: number;
     payment_method: string;
@@ -55,12 +56,14 @@ export default function SalesListPage() {
         return (
             sale.sale_id.toString().includes(s) ||
             sale.contacts?.name?.toLowerCase().includes(s) ||
-            sale.contacts?.phone?.includes(s)
+            sale.contacts?.phone?.includes(s) ||
+            sale.customer_name?.toLowerCase().includes(s)
         );
     });
 
     return (
-        <div className="p-8 max-w-6xl mx-auto">
+        <div className="min-h-screen bg-gray-50 p-8">
+            <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -144,6 +147,12 @@ export default function SalesListPage() {
                                                         <p className="text-xs text-gray-500 mt-0.5">{sale.contacts.phone}</p>
                                                     )}
                                                 </div>
+                                            ) : sale.customer_name ? (
+                                                <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                                                    <User className="w-3.5 h-3.5 text-gray-400" />
+                                                    {sale.customer_name}
+                                                    <span className="text-xs text-gray-400 italic font-normal">(walk-in)</span>
+                                                </p>
                                             ) : (
                                                 <span className="text-sm text-gray-500 italic">Walk-in Customer</span>
                                             )}
@@ -179,6 +188,7 @@ export default function SalesListPage() {
                         </tbody>
                     </table>
                 </div>
+            </div>
             </div>
         </div>
     );
