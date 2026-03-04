@@ -1,4 +1,5 @@
 const supabase = require('../db');
+const { logActivity } = require('../utils/activityLogger');
 
 const FULL_FIELDS = 'employee_id, name, designation, phone, email, basic_salary, join_date, is_active, role, photo_url, nid_photo_url, address, employee_type_id, created_at';
 
@@ -122,6 +123,16 @@ const createEmployee = async (req, res) => {
             .single();
 
         if (error) throw error;
+
+        logActivity(req, {
+            action: 'INSERT',
+            module: 'EMPLOYEES',
+            targetTable: 'employee',
+            targetId: data.employee_id,
+            description: `Created employee: ${name}`,
+            newValues: data
+        });
+
         res.status(201).json(data);
     } catch (err) {
         console.error('createEmployee error:', err);
@@ -159,6 +170,16 @@ const updateEmployee = async (req, res) => {
 
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'Employee not found' });
+
+        logActivity(req, {
+            action: 'UPDATE',
+            module: 'EMPLOYEES',
+            targetTable: 'employee',
+            targetId: parseInt(id),
+            description: `Updated employee: ${name}`,
+            newValues: data
+        });
+
         res.json(data);
     } catch (err) {
         console.error('updateEmployee error:', err);
@@ -172,6 +193,15 @@ const deleteEmployee = async (req, res) => {
     try {
         const { error } = await supabase.from('employee').delete().eq('employee_id', id);
         if (error) throw error;
+
+        logActivity(req, {
+            action: 'DELETE',
+            module: 'EMPLOYEES',
+            targetTable: 'employee',
+            targetId: parseInt(id),
+            description: `Deleted employee ID: ${id}`
+        });
+
         res.json({ message: 'Employee deleted successfully' });
     } catch (err) {
         console.error('deleteEmployee error:', err);

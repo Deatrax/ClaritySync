@@ -39,6 +39,27 @@ export default function Sidebar() {
   const { user, token, logout } = useAuth();
   const [isTransactionsOpen, setIsTransactionsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [modules, setModules] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/settings/modules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const map: Record<string, boolean> = {};
+          data.forEach((m: any) => { map[m.module_name] = m.is_enabled; });
+          setModules(map);
+        }
+      } catch (error) {
+        console.error('Sidebar module fetch error:', error);
+      }
+    };
+    fetchModules();
+  }, [pathname]); // Refresh on navigation to ensure up-to-date state
 
   // Notification state
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -136,36 +157,56 @@ export default function Sidebar() {
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         <NavItem href="/" icon={<LayoutDashboard />} label="Dashboard" active={pathname === '/'} />
         <NavItem href="/profile" icon={<CircleUser />} label="My Profile" active={pathname === '/profile'} />
-        <NavItem href="/inventory" icon={<Package />} label="Inventory" active={pathname.startsWith('/inventory')} />
-        <NavItem href="/sales" icon={<ShoppingCart />} label="Sales (POS)" active={pathname.startsWith('/sales')} />
-        <NavItem href="/contacts" icon={<Users />} label="Contacts" active={pathname.startsWith('/contacts')} />
-        <NavItem href="/employees" icon={<Briefcase />} label="Employees" active={pathname.startsWith('/employees')} />
-        <NavItem href="/expenses" icon={<Receipt />} label="Expense Requests" active={pathname.startsWith('/expenses')} />
-        <NavItem href="/banking" icon={<Wallet />} label="Banking" active={pathname.startsWith('/banking')} />
+
+        {modules['INVENTORY'] !== false && (
+          <NavItem href="/inventory" icon={<Package />} label="Inventory" active={pathname.startsWith('/inventory')} />
+        )}
+
+        {modules['SALES'] !== false && (
+          <NavItem href="/sales" icon={<ShoppingCart />} label="Sales (POS)" active={pathname.startsWith('/sales')} />
+        )}
+
+        {modules['CONTACTS'] !== false && (
+          <NavItem href="/contacts" icon={<Users />} label="Contacts" active={pathname.startsWith('/contacts')} />
+        )}
+
+        {modules['EMPLOYEES'] !== false && (
+          <NavItem href="/employees" icon={<Briefcase />} label="Employees" active={pathname.startsWith('/employees')} />
+        )}
+
+        {modules['EMPLOYEES'] !== false && (
+          <NavItem href="/expenses" icon={<Receipt />} label="Expense Requests" active={pathname.startsWith('/expenses')} />
+        )}
+
+        {modules['BANKING'] !== false && (
+          <NavItem href="/banking" icon={<Wallet />} label="Banking" active={pathname.startsWith('/banking')} />
+        )}
 
         {/* Transactions Group */}
-        <div>
-          <button
-            onClick={() => setIsTransactionsOpen(!isTransactionsOpen)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isTransactionsOpen || pathname.startsWith('/transactions') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-          >
-            <div className="flex items-center gap-3">
-              <ArrowRightLeft size={20} />
-              <span>Transactions</span>
-            </div>
-            {isTransactionsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
+        {modules['TRANSACTIONS'] !== false && (
+          <div>
+            <button
+              onClick={() => setIsTransactionsOpen(!isTransactionsOpen)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isTransactionsOpen || pathname.startsWith('/transactions') ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <ArrowRightLeft size={20} />
+                <span>Transactions</span>
+              </div>
+              {isTransactionsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
 
-          {isTransactionsOpen && (
-            <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-2">
-              <NavItem href="/transactions/receive" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Receive" subItem active={pathname === '/transactions/receive'} />
-              <NavItem href="/transactions/payment" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Payment" subItem active={pathname === '/transactions/payment'} />
-              <NavItem href="/transactions/banking" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Banking" subItem active={pathname === '/transactions/banking'} />
-              <NavItem href="/transactions" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="List" subItem active={pathname === '/transactions'} />
-            </div>
-          )}
-        </div>
+            {isTransactionsOpen && (
+              <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-2">
+                <NavItem href="/transactions/receive" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Receive" subItem active={pathname === '/transactions/receive'} />
+                <NavItem href="/transactions/payment" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Payment" subItem active={pathname === '/transactions/payment'} />
+                <NavItem href="/transactions/banking" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Banking" subItem active={pathname === '/transactions/banking'} />
+                <NavItem href="/transactions" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="List" subItem active={pathname === '/transactions'} />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Settings Group */}
         <div>
@@ -186,7 +227,15 @@ export default function Sidebar() {
               <NavItem href="/settings/categories" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Categories" subItem active={pathname === '/settings/categories'} />
               <NavItem href="/settings/salary-components" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Salary Components" subItem active={pathname === '/settings/salary-components'} />
               <NavItem href="/settings/employee-types" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Employee Types" subItem active={pathname === '/settings/employee-types'} />
-              <NavItem href="/settings/admin-users" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Administrator Users" subItem active={pathname === '/settings/admin-users'} />
+
+              {user?.role === 'ADMIN' && (
+                <>
+                  <NavItem href="/settings/admin-users" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Administrator Users" subItem active={pathname === '/settings/admin-users'} />
+                  <NavItem href="/settings/modules" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Module Management" subItem active={pathname === '/settings/modules'} />
+                  <NavItem href="/settings/logs/system" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="System Log" subItem active={pathname === '/settings/logs/system'} />
+                  <NavItem href="/settings/logs/login" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Login Logs" subItem active={pathname === '/settings/logs/login'} />
+                </>
+              )}
             </div>
           )}
         </div>
@@ -306,7 +355,7 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
-    </aside>
+    </aside >
   );
 }
 
