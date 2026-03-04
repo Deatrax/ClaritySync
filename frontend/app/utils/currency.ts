@@ -1,0 +1,18 @@
+/**
+ * Formats a monetary amount using the configured currency symbol and position.
+ *
+ * @example
+ * formatCurrency(1250, '৳', 'BEFORE')  // → '৳1,250.00'
+ * formatCurrency(1250, '৳', 'AFTER')   // → '1,250.00 ৳'
+ */
+export function formatCurrency(
+    amount: number,
+    symbol: string,
+    position: 'BEFORE' | 'AFTER'
+): string {
+    const formatted = amount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+    return position === 'BEFORE' ? `${symbol}${formatted}` : `${formatted} ${symbol}`;
+}

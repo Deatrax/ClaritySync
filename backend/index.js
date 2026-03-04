@@ -24,6 +24,7 @@ const employeeRoutes = require('./routes/employeeRoutes');
 const adminUsersRoutes = require('./routes/adminUsersRoutes');
 const logsRoutes = require('./routes/logsRoutes');
 const moduleRoutes = require('./routes/moduleRoutes');
+const settingsGeneralRoutes = require('./routes/settingsGeneralRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -41,6 +42,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/settings/admin-users', adminUsersRoutes);
 app.use('/api/settings/logs', logsRoutes);
 app.use('/api/settings/modules', moduleRoutes);
+app.use('/api/settings/general', settingsGeneralRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
