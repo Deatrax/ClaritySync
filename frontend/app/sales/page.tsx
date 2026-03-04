@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 import {
   ShoppingCart,
   Search,
@@ -12,9 +13,12 @@ import {
   DollarSign,
   Printer,
   X,
-  AlertCircle
+  AlertCircle,
+  ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
+import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface Product {
   product_id: number;
@@ -52,17 +56,10 @@ interface Customer {
 }
 
 interface Account {
-    account_id: number;
-    account_name: string;
-    account_type: string;
-    current_balance: string;
-}
-
-interface Employee {
-    employee_id: number;
-    name: string;
-    email: string;
-    role: string;
+  account_id: number;
+  account_name: string;
+  account_type: string;
+  current_balance: string;
 }
 
 export default function SalesPage() {
@@ -76,8 +73,9 @@ export default function SalesPage() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const { user } = useAuth();
+
+  const { format: formatC } = useCurrency();
 
   // Form states
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
@@ -88,32 +86,18 @@ export default function SalesPage() {
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const [saleComplete, setSaleComplete] = useState(false);
   const [receiptToken, setReceiptToken] = useState('');
+  const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
-  // Fetch data on mount
-  useEffect(() => {
-    fetchInventory();
-    fetchCustomers();
-    fetchAccounts();
-    fetchEmployees();
-  }, []);
+  // Warranty expiry alerts — keyed by inventory_id
+  const [warrantyAlerts, setWarrantyAlerts] = useState<Record<number, { product_name: string; days_remaining: number; expires_at: string }>>({});
 
-  // Filter customers based on search
-  useEffect(() => {
-    if (customerSearch.trim() === '') {
-      setFilteredCustomers([]);
-    } else {
-      const filtered = customers.filter(c =>
-        (c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-        c.phone.includes(customerSearch)) && 
-        (c.contact_type === 'CUSTOMER' || c.contact_type === 'BOTH')
-      );
-      setFilteredCustomers(filtered);
-    }
-  }, [customerSearch, customers]);
-
+  // Fetch functions — defined before the useEffect that calls them
   const fetchInventory = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/inventory');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/inventory', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setInventory(data);
@@ -125,7 +109,10 @@ export default function SalesPage() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/contacts');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/contacts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setCustomers(data);
@@ -137,12 +124,15 @@ export default function SalesPage() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/accounts');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setAccounts(data);
         if (data.length > 0) {
-            setSelectedAccountId(data[0].account_id.toString());
+          setSelectedAccountId(data[0].account_id.toString());
         }
       }
     } catch (error) {
@@ -150,21 +140,63 @@ export default function SalesPage() {
     }
   };
 
-  const fetchEmployees = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/employees');
-      if (res.ok) {
-        const data = await res.json();
-        setEmployees(data);
-        // Auto-select first employee if available (or logic based on logged in user later)
-        if (data.length > 0) {
-           setSelectedEmployeeId(data[0].employee_id.toString());
+  // Fetch data on mount
+  useEffect(() => {
+    const checkModule = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/settings/modules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const mod = data.find((m: any) => m.module_name === 'SALES');
+          setModuleStatus(mod?.is_enabled ?? true);
+        } else {
+          setModuleStatus(true);
         }
+      } catch (error) {
+        setModuleStatus(true);
       }
-    } catch (error) {
-      console.error('Failed to fetch employees', error);
+    };
+
+    checkModule();
+    fetchInventory();
+    fetchCustomers();
+    fetchAccounts();
+  }, []);
+
+  // Filter customers based on search
+  useEffect(() => {
+    if (customerSearch.trim() === '') {
+      setFilteredCustomers([]);
+    } else {
+      const filtered = customers.filter(c =>
+        (c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+          c.phone.includes(customerSearch)) &&
+        (c.contact_type === 'CUSTOMER' || c.contact_type === 'BOTH')
+      );
+      setFilteredCustomers(filtered);
     }
-  };
+  }, [customerSearch, customers]);
+
+  if (moduleStatus === false) {
+    return (
+      <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-xl w-full">
+          <ModuleDisabled moduleName="Sales" />
+        </div>
+      </div>
+    );
+  }
+
+  if (moduleStatus === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   const filteredInventory = inventory.filter(item =>
     item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -182,6 +214,22 @@ export default function SalesPage() {
             : ci
         );
       }
+      // Check warranty expiry in background
+      fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+        .then(r => r.json())
+        .then(w => {
+          if (w?.has_warranty && w?.is_expiring_soon) {
+            setWarrantyAlerts(prev => ({
+              ...prev,
+              [item.inventory_id]: {
+                product_name: item.product_name,
+                days_remaining: w.days_remaining,
+                expires_at: w.warranty_expires_at
+              }
+            }));
+          }
+        })
+        .catch(() => { });
       return [...prevCart, {
         inventory_id: item.inventory_id,
         product_id: item.product_id,
@@ -209,6 +257,7 @@ export default function SalesPage() {
 
   const removeFromCart = (inventoryId: number) => {
     setCart(prevCart => prevCart.filter(item => item.inventory_id !== inventoryId));
+    setWarrantyAlerts(prev => { const n = { ...prev }; delete n[inventoryId]; return n; });
   };
 
   // Calculations
@@ -218,7 +267,7 @@ export default function SalesPage() {
 
   const handleCompleteSale = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (cart.length === 0) {
       setMessage({ type: 'error', text: 'Cart is empty. Add items before completing sale.' });
       return;
@@ -245,12 +294,15 @@ export default function SalesPage() {
         payment_method: paymentMethod,
         payment_status: paymentMethod === 'due' ? 'DUE' : 'PAID',
         account_id: paymentMethod === 'bank' ? selectedAccountId : null,
-        employee_id: paymentMethod === 'cash' ? selectedEmployeeId : null
       };
 
+      const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:5000/api/sales', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(salePayload)
       });
 
@@ -300,7 +352,7 @@ export default function SalesPage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Sale Complete!</h2>
           <p className="text-gray-600 mb-6">Transaction successful</p>
-          
+
           <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
             <p className="text-sm text-gray-600 mb-2">Receipt Token:</p>
             <p className="text-lg font-mono font-bold text-gray-900 break-all">{receiptToken}</p>
@@ -377,14 +429,13 @@ export default function SalesPage() {
                     <h3 className="font-semibold text-gray-900 text-sm">{item.product_name}</h3>
                     <p className="text-xs text-gray-500">{item.supplier_name}</p>
                   </div>
-                  
+
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-lg font-bold text-blue-600">TK {item.selling_price.toFixed(2)}</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                      item.quantity > 0
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className="text-lg font-bold text-blue-600">{formatC(item.selling_price)}</span>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${item.quantity > 0
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                      }`}>
                       {item.quantity} in stock
                     </span>
                   </div>
@@ -392,11 +443,10 @@ export default function SalesPage() {
                   <button
                     onClick={() => addToCart(item)}
                     disabled={item.quantity === 0}
-                    className={`w-full py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                      item.quantity > 0
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`w-full py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${item.quantity > 0
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
                   >
                     <Plus className="w-4 h-4" />
                     Add to Cart
@@ -413,13 +463,23 @@ export default function SalesPage() {
 
         {/* Right: Cart & Checkout */}
         <div className="lg:col-span-1">
+          {/* Warranty Expiry Alerts */}
+          {Object.values(warrantyAlerts).map((alert, i) => (
+            <div key={i} className="rounded-lg p-3 mb-3 flex gap-3 bg-amber-50 text-amber-900 border border-amber-300">
+              <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
+              <p className="text-xs">
+                <strong>Warranty Expiring Soon</strong> — {alert.product_name}: only <strong>{alert.days_remaining} day{alert.days_remaining !== 1 ? 's' : ''}</strong> remaining.
+                Customer should be informed.
+              </p>
+            </div>
+          ))}
+
           {/* Message */}
           {message && (
-            <div className={`rounded-lg p-4 mb-4 flex gap-3 ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}>
+            <div className={`rounded-lg p-4 mb-4 flex gap-3 ${message.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <p className="text-sm">{message.text}</p>
             </div>
@@ -440,7 +500,7 @@ export default function SalesPage() {
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900 text-sm">{item.product_name}</p>
-                        <p className="text-xs text-gray-500">TK {item.price.toFixed(2)} each</p>
+                        <p className="text-xs text-gray-500">{formatC(item.price)} each</p>
                       </div>
                       <button
                         onClick={() => removeFromCart(item.inventory_id)}
@@ -471,7 +531,7 @@ export default function SalesPage() {
                         <Plus className="w-3 h-3" />
                       </button>
                       <span className="ml-auto text-sm font-semibold text-gray-900">
-                        TK {item.subtotal.toFixed(2)}
+                        {formatC(item.subtotal)}
                       </span>
                     </div>
                   </div>
@@ -485,29 +545,28 @@ export default function SalesPage() {
             <div className="border-t border-gray-200 pt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal:</span>
-                <span className="font-semibold">TK {subtotal.toFixed(2)}</span>
+                <span className="font-semibold">{formatC(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Tax (10%):</span>
-                <span className="font-semibold">TK {tax.toFixed(2)}</span>
+                <span className="font-semibold">{formatC(tax)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <label htmlFor="discount" className="text-gray-600">Discount:</label>
                 <div className="flex items-center gap-2">
-                  <span>TK</span>
                   <input
                     id="discount"
                     type="number"
                     value={discount}
                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    className="w-16 border border-gray-300 rounded px-2 py-1 text-sm"
+                    className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right"
                     min="0"
                   />
                 </div>
               </div>
               <div className="flex justify-between text-lg font-bold bg-blue-50 p-3 rounded">
                 <span>Total:</span>
-                <span className="text-blue-600">TK {total.toFixed(2)}</span>
+                <span className="text-blue-600">{formatC(total)}</span>
               </div>
             </div>
           </div>
@@ -516,22 +575,13 @@ export default function SalesPage() {
           <form onSubmit={handleCompleteSale} className="bg-white rounded-lg shadow p-4 space-y-4 mt-4">
             <h3 className="text-lg font-bold text-gray-900">Checkout</h3>
 
-            {/* Employee Selection (For Cash Tracking) */}
-            <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-900">Sold By (Employee)</label>
-                <select
-                    value={selectedEmployeeId}
-                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    required
-                >
-                    <option value="">Select Employee</option>
-                    {employees.map(emp => (
-                        <option key={emp.employee_id} value={emp.employee_id}>
-                            {emp.name} ({emp.role})
-                        </option>
-                    ))}
-                </select>
+            {/* Sold By — auto from logged-in user */}
+            <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+              <User className="w-4 h-4 text-slate-500 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500 font-medium">Selling as</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{user?.email || 'Unknown'}</p>
+              </div>
             </div>
 
             {/* Customer Type */}
@@ -666,20 +716,20 @@ export default function SalesPage() {
 
             {/* Bank Accounts Dropdown */}
             {paymentMethod === 'bank' && (
-                <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-900">Select Bank Account</label>
-                    <select
-                        value={selectedAccountId}
-                        onChange={(e) => setSelectedAccountId(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    >
-                        {accounts.map(acc => (
-                            <option key={acc.account_id} value={acc.account_id}>
-                                {acc.account_name} (Balance: TK {acc.current_balance})
-                            </option>
-                        ))}
-                    </select>
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-900">Select Bank Account</label>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  {accounts.map(acc => (
+                    <option key={acc.account_id} value={acc.account_id}>
+                      {acc.account_name} (Balance: {formatC(parseFloat(acc.current_balance))})
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
 
             {/* Warning: Due only for registered customers */}
@@ -694,11 +744,10 @@ export default function SalesPage() {
             <button
               type="submit"
               disabled={loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)}
-              className={`w-full py-3 rounded-lg font-semibold transition-colors text-white flex items-center justify-center gap-2 ${
-                loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
-              }`}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors text-white flex items-center justify-center gap-2 ${loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700'
+                }`}
             >
               <DollarSign className="w-5 h-5" />
               {loading ? 'Processing...' : 'Complete Sale'}

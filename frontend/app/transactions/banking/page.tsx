@@ -8,6 +8,7 @@ import {
     Wallet
 } from 'lucide-react';
 import Link from 'next/link';
+import { useCurrency } from '@/app/utils/currency';
 
 interface BankAccount {
     account_id: number;
@@ -27,6 +28,8 @@ export default function BankingTransactionPage() {
         amount: '',
         description: ''
     });
+
+    const { format: formatC, symbol: currencySymbol } = useCurrency();
 
     useEffect(() => {
         fetchData();
@@ -120,8 +123,8 @@ export default function BankingTransactionPage() {
             <div className="flex-1 max-w-4xl mx-auto w-full p-4 md:p-8">
                 {message && (
                     <div className={`rounded-lg p-4 mb-6 flex gap-3 ${message.type === 'success'
-                            ? 'bg-green-50 text-green-800 border border-green-200'
-                            : 'bg-red-50 text-red-800 border border-red-200'
+                        ? 'bg-green-50 text-green-800 border border-green-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
                         }`}>
                         <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                         <p className="text-sm">{message.text}</p>
@@ -163,7 +166,7 @@ export default function BankingTransactionPage() {
                                         <option value="">Select source account</option>
                                         {accounts.map(account => (
                                             <option key={account.account_id} value={account.account_id}>
-                                                {account.account_name} (Tk {account.current_balance.toFixed(2)})
+                                                {account.account_name} ({formatC(account.current_balance)})
                                             </option>
                                         ))}
                                     </select>
@@ -185,7 +188,7 @@ export default function BankingTransactionPage() {
                                         <option value="">Select destination account</option>
                                         {accounts.filter(a => String(a.account_id) !== formData.from_account_id).map(account => (
                                             <option key={account.account_id} value={account.account_id}>
-                                                {account.account_name} (Tk {account.current_balance.toFixed(2)})
+                                                {account.account_name} ({formatC(account.current_balance)})
                                             </option>
                                         ))}
                                     </select>
@@ -195,9 +198,9 @@ export default function BankingTransactionPage() {
 
                             {/* Amount */}
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-900 mb-1">Amount (TK) *</label>
+                                <label className="block text-sm font-medium text-gray-900 mb-1">Amount ({currencySymbol}) *</label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">Tk</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{currencySymbol}</span>
                                     <input
                                         type="number"
                                         name="amount"
@@ -231,8 +234,8 @@ export default function BankingTransactionPage() {
                             type="submit"
                             disabled={loading}
                             className={`w-full py-3 rounded-lg font-bold text-white transition-all shadow-sm ${loading
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-700 hover:shadow-md'
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-blue-600 hover:bg-blue-700 hover:shadow-md'
                                 }`}
                         >
                             {loading ? 'Processing...' : 'Transfer Funds'}

@@ -1,24 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { 
-  Package, 
-  Search, 
-  Plus, 
-  ArrowUpDown, 
-  ChevronRight,
+import {
+  Package,
+  Search,
+  Plus,
   AlertCircle,
-  Edit2,
-  Trash2
+  Trash2,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
-import ProductWithAttributesForm from '@/components/ProductWithAttributesForm';
-
-interface Category {
-  category_id: number;
-  category_name: string;
-  description: string;
-}
+import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface Product {
   product_id: number;
@@ -50,14 +43,14 @@ interface Account {
 }
 
 export default function InventoryPage() {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'products' | 'add-product' | 'add-stock'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'add-stock'>('inventory');
   const [products, setProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
   const [stockForm, setStockForm] = useState({
     product_id: '',
@@ -65,24 +58,38 @@ export default function InventoryPage() {
     quantity: '',
     purchase_price: '',
     selling_price: '',
-    serial_number: '',
     account_id: ''
   });
+  const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
 
-  // Fetch data
-  useEffect(() => {
-    fetchProducts();
-    fetchInventory();
-    fetchCategories();
-    fetchAccounts();
-  }, []);
+  // Determine if the selected product supports serial numbers
+  const selectedProduct = products.find(p => p.product_id === parseInt(stockForm.product_id));
+  const showSerialNumbers = selectedProduct?.has_serial_number === true;
+  const parsedQuantity = parseInt(stockForm.quantity) || 0;
+  const serialCountMismatch = showSerialNumbers && parsedQuantity > 0 && serialNumbers.filter(s => s.trim() !== '').length !== parsedQuantity;
+
+  const handleAddSerialNumber = () => {
+    setSerialNumbers(prev => [...prev, '']);
+  };
+
+  const handleRemoveSerialNumber = (index: number) => {
+    setSerialNumbers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSerialNumberChange = (index: number, value: string) => {
+    setSerialNumbers(prev => prev.map((s, i) => i === index ? value : s));
+  };
+
+  const { format: formatC } = useCurrency();
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/products');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
-        console.log('Products fetched:', data);
         setProducts(data);
       } else {
         const error = await res.json();
@@ -97,7 +104,10 @@ export default function InventoryPage() {
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/inventory');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/inventory', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setInventory(data);
@@ -107,27 +117,17 @@ export default function InventoryPage() {
     }
   };
 
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/categories');
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch categories", error);
-    }
-  };
-
   const fetchAccounts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/accounts');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setAccounts(data);
-        // Set default account if available and not yet set
         if (data.length > 0 && !stockForm.account_id) {
-           setStockForm(prev => ({ ...prev, account_id: data[0].account_id.toString() }));
+          setStockForm(prev => ({ ...prev, account_id: data[0].account_id.toString() }));
         }
       }
     } catch (error) {
@@ -135,11 +135,65 @@ export default function InventoryPage() {
     }
   };
 
-  // Handle Add Stock
+  useEffect(() => {
+    const checkModule = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/settings/modules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const mod = data.find((m: any) => m.module_name === 'INVENTORY');
+          setModuleStatus(mod?.is_enabled ?? true);
+        } else {
+          setModuleStatus(true);
+        }
+      } catch {
+        setModuleStatus(true);
+      }
+    };
+
+    checkModule();
+    fetchProducts();
+    fetchInventory();
+    fetchAccounts();
+  }, []);
+
+  if (moduleStatus === false) {
+    return (
+      <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-xl w-full">
+          <ModuleDisabled moduleName="Inventory" />
+        </div>
+      </div>
+    );
+  }
+
+  if (moduleStatus === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate serial numbers match quantity for serial products
+    if (showSerialNumbers) {
+      const validSerials = serialNumbers.filter(s => s.trim() !== '');
+      const qty = parseInt(stockForm.quantity) || 0;
+      if (validSerials.length !== qty) {
+        setMessage({ type: 'error', text: `You must enter exactly ${qty} serial number(s). Currently entered: ${validSerials.length}` });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const validSerials = showSerialNumbers ? serialNumbers.filter(s => s.trim() !== '') : [];
       const res = await fetch('http://localhost:5000/api/inventory/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -149,7 +203,7 @@ export default function InventoryPage() {
           quantity: parseInt(stockForm.quantity),
           purchase_price: parseFloat(stockForm.purchase_price),
           selling_price: parseFloat(stockForm.selling_price),
-          serial_number: stockForm.serial_number || null,
+          serial_numbers: validSerials.length > 0 ? validSerials : null,
           account_id: parseInt(stockForm.account_id)
         })
       });
@@ -161,9 +215,9 @@ export default function InventoryPage() {
           quantity: '',
           purchase_price: '',
           selling_price: '',
-          serial_number: '',
           account_id: '1'
         });
+        setSerialNumbers([]);
         fetchInventory();
         setTimeout(() => setMessage(null), 3000);
       } else {
@@ -178,40 +232,9 @@ export default function InventoryPage() {
     }
   };
 
-  const filteredProducts = products.filter(p => 
-    p.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.brand?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredInventory = inventory.filter(i => 
+  const filteredInventory = inventory.filter(i =>
     i.product_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  // Handle Delete Product
-  const handleDeleteProduct = async (productId: number) => {
-    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`http://localhost:5000/api/products/${productId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Product deleted successfully!' });
-        fetchProducts();
-        setTimeout(() => setMessage(null), 3000);
-      } else {
-        const error = await res.json();
-        setMessage({ type: 'error', text: error.error || 'Failed to delete product' });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to delete product' });
-      console.error(error);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -237,11 +260,10 @@ export default function InventoryPage() {
       <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Message Alert */}
         {message && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-800' 
-              : 'bg-red-50 border border-red-200 text-red-800'
-          }`}>
+          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${message.type === 'success'
+            ? 'bg-green-50 border border-green-200 text-green-800'
+            : 'bg-red-50 border border-red-200 text-red-800'
+            }`}>
             <AlertCircle className="w-5 h-5" />
             <span>{message.text}</span>
           </div>
@@ -252,44 +274,20 @@ export default function InventoryPage() {
           <div className="flex gap-0 flex-wrap">
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'inventory'
+              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'inventory'
                   ? 'border-b-blue-600 text-blue-600 bg-blue-50'
                   : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               <Package className="w-4 h-4 inline mr-2" />
               Current Stock
             </button>
             <button
-              onClick={() => setActiveTab('products')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'products'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Package className="w-4 h-4 inline mr-2" />
-              Product List
-            </button>
-            <button
-              onClick={() => setActiveTab('add-product')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'add-product'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Plus className="w-4 h-4 inline mr-2" />
-              Add New Product
-            </button>
-            <button
               onClick={() => setActiveTab('add-stock')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'add-stock'
+              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'add-stock'
                   ? 'border-b-blue-600 text-blue-600 bg-blue-50'
                   : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               <Plus className="w-4 h-4 inline mr-2" />
               Add Stock
@@ -297,15 +295,15 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* Tab Content */}
+        {/* Tab Content: Current Stock */}
         {activeTab === 'inventory' && (
           <div>
             <div className="mb-6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input 
-                  type="text" 
-                  placeholder="Search inventory by product name..." 
+                <input
+                  type="text"
+                  placeholder="Search inventory by product name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -337,23 +335,19 @@ export default function InventoryPage() {
                     {filteredInventory.map((item) => (
                       <tr key={item.inventory_id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
-                          <span className="text-gray-900 font-semibold text-base">
-                            {item.product_name}
-                          </span>
+                          <span className="text-gray-900 font-semibold text-base">{item.product_name}</span>
                         </td>
-                        <td className="px-6 py-4 text-gray-600">
-                          {item.supplier_name}
-                        </td>
+                        <td className="px-6 py-4 text-gray-600">{item.supplier_name}</td>
                         <td className="px-6 py-4 text-center">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
                             {item.quantity}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                          ${parseFloat(String(item.purchase_price)).toFixed(2)}
+                          {formatC(parseFloat(String(item.purchase_price)))}
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-green-600">
-                          ${parseFloat(String(item.selling_price)).toFixed(2)}
+                          {formatC(parseFloat(String(item.selling_price)))}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           {item.serial_number ? (
@@ -363,13 +357,12 @@ export default function InventoryPage() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            item.status === 'IN_STOCK'
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.status === 'IN_STOCK'
                               ? 'bg-green-100 text-green-800'
                               : item.status === 'SOLD'
-                              ? 'bg-gray-100 text-gray-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                                ? 'bg-gray-100 text-gray-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
                             {item.status}
                           </span>
                         </td>
@@ -382,145 +375,8 @@ export default function InventoryPage() {
           </div>
         )}
 
-        {/* Tab Content */}
-        {activeTab === 'products' && (
-          <div>
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input 
-                  type="text" 
-                  placeholder="Search products by name or brand..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                />
-              </div>
-            </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              {filteredProducts.length === 0 ? (
-                <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-                  <Package className="w-12 h-12 text-gray-300 mb-4" />
-                  <p className="text-lg font-medium text-gray-900">No products found</p>
-                  <p className="text-sm mt-1">Add a new product to get started.</p>
-                </div>
-              ) : (
-                <table className="w-full text-left text-sm text-gray-600">
-                  <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-medium">
-                    <tr>
-                      <th className="px-6 py-4">Product Name</th>
-                      <th className="px-6 py-4">Category</th>
-                      <th className="px-6 py-4">Brand</th>
-                      <th className="px-6 py-4">Serial Number</th>
-                      <th className="px-6 py-4 text-right">Est. Selling Price</th>
-                      <th className="px-6 py-4 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredProducts.map((product) => (
-                      <tr key={product.product_id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <span className="text-gray-900 font-semibold text-base">
-                            {product.product_name}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {product.category_name}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">
-                          {product.brand || '—'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            product.has_serial_number
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {product.has_serial_number ? 'Yes' : 'No'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right font-bold text-gray-900">
-                          ${product.selling_price_estimate?.toLocaleString() || '—'}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button className="text-blue-600 hover:text-blue-800 p-2 rounded-full hover:bg-blue-50 transition-colors">
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteProduct(product.product_id)}
-                              className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'add-product' && (
-          <div className="max-w-2xl bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Add New Product</h2>
-            
-            {categories.length === 0 && (
-              <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-yellow-800">No categories found</p>
-                  <p className="text-sm text-yellow-700 mt-1">You need to create categories first. Click the button below to add default categories, or add your own.</p>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('http://localhost:5000/api/categories/seed/defaults', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' }
-                        });
-                        const data = await res.json();
-                        
-                        if (res.ok) {
-                          await fetchCategories();
-                          const msg = data.skipped > 0 
-                            ? `${data.count} new categories added (${data.skipped} already existed)!`
-                            : data.count === 0
-                            ? 'All categories already exist!'
-                            : `${data.count} categories added!`;
-                          setMessage({ type: 'success', text: msg });
-                          setTimeout(() => setMessage(null), 3000);
-                        } else {
-                          setMessage({ type: 'error', text: `Failed: ${data.error}` });
-                        }
-                      } catch (error) {
-                        setMessage({ type: 'error', text: `Error: ${error instanceof Error ? error.message : 'Failed to add categories'}` });
-                      }
-                    }}
-                    className="mt-3 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded transition-colors"
-                  >
-                    Add Default Categories
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <ProductWithAttributesForm
-              categories={categories}
-              onSubmit={(product) => {
-                setMessage({ type: 'success', text: 'Product created successfully!' });
-                fetchProducts();
-                setTimeout(() => setMessage(null), 3000);
-              }}
-            />
-          </div>
-        )}
-
+        {/* Tab Content: Add Stock */}
         {activeTab === 'add-stock' && (
           <div className="max-w-2xl bg-white rounded-xl border border-gray-200 shadow-sm p-8">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Add Stock / Purchase</h2>
@@ -528,9 +384,9 @@ export default function InventoryPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
-                  <select 
+                  <select
                     value={stockForm.product_id}
-                    onChange={(e) => setStockForm({...stockForm, product_id: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, product_id: e.target.value })}
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
@@ -545,21 +401,21 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="Supplier ID or name"
                     value={stockForm.supplier_id}
-                    onChange={(e) => setStockForm({...stockForm, supplier_id: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, supplier_id: e.target.value })}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={stockForm.quantity}
-                    onChange={(e) => setStockForm({...stockForm, quantity: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })}
                     placeholder="0"
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
@@ -568,11 +424,11 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Purchase Price (per unit)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.01"
                     value={stockForm.purchase_price}
-                    onChange={(e) => setStockForm({...stockForm, purchase_price: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, purchase_price: e.target.value })}
                     placeholder="0.00"
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
@@ -581,11 +437,11 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Selling Price (per unit)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.01"
                     value={stockForm.selling_price}
-                    onChange={(e) => setStockForm({...stockForm, selling_price: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, selling_price: e.target.value })}
                     placeholder="0.00"
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
@@ -594,34 +450,91 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Payment Account</label>
-                  <select 
+                  <select
                     value={stockForm.account_id}
-                    onChange={(e) => setStockForm({...stockForm, account_id: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, account_id: e.target.value })}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                     required
                   >
                     <option value="">Select Account</option>
                     {accounts.map(acc => (
                       <option key={acc.account_id} value={acc.account_id}>
-                        {acc.account_name} (TK {acc.current_balance})
+                        {acc.account_name} ({formatC(parseFloat(acc.current_balance))})
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Serial Number (if applicable)</label>
-                <input 
-                  type="text" 
-                  value={stockForm.serial_number}
-                  onChange={(e) => setStockForm({...stockForm, serial_number: e.target.value})}
-                  placeholder="Leave empty if not applicable"
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                />
-              </div>
+              {/* Serial Numbers Section — only shown for serial-number products */}
+              {showSerialNumbers && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-blue-800">
+                      Serial Numbers
+                      {parsedQuantity > 0 && (
+                        <span className={`ml-2 text-xs font-normal ${
+                          serialCountMismatch ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          ({serialNumbers.filter(s => s.trim() !== '').length} / {parsedQuantity} entered)
+                        </span>
+                      )}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddSerialNumber}
+                      disabled={parsedQuantity > 0 && serialNumbers.length >= parsedQuantity}
+                      className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Serial
+                    </button>
+                  </div>
 
-              <button 
+                  {serialNumbers.length === 0 && parsedQuantity > 0 && (
+                    <p className="text-sm text-blue-600 mb-2">
+                      This product requires serial numbers. Add {parsedQuantity} serial number{parsedQuantity > 1 ? 's' : ''}.
+                    </p>
+                  )}
+
+                  <div className="space-y-2">
+                    {serialNumbers.map((serial, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={serial}
+                          onChange={(e) => handleSerialNumberChange(index, e.target.value)}
+                          placeholder={`Serial number ${index + 1}`}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSerialNumber(index)}
+                          className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {serialCountMismatch && parsedQuantity > 0 && serialNumbers.length > 0 && (
+                    <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Number of serial numbers must match quantity ({parsedQuantity})
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Message when product doesn't support serial numbers */}
+              {stockForm.product_id && !showSerialNumbers && (
+                <p className="text-xs text-gray-400 italic -mt-2">
+                  This product does not require serial numbers.
+                </p>
+              )}
+
+              <button
                 type="submit"
                 disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 rounded-lg transition-colors"

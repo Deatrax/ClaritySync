@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { 
-  Wallet, 
+import {
+  Wallet,
   TrendingUp,
   TrendingDown,
   Plus,
@@ -11,6 +11,8 @@ import {
   DollarSign
 } from 'lucide-react';
 import Link from 'next/link';
+import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface BankAccount {
   account_id: number;
@@ -35,8 +37,29 @@ export default function BankingPage() {
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [totalBalance, setTotalBalance] = useState(0);
+  const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+  const { format: formatC } = useCurrency();
 
   useEffect(() => {
+    const checkModule = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/settings/modules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const mod = data.find((m: any) => m.module_name === 'BANKING');
+          setModuleStatus(mod?.is_enabled ?? true);
+        } else {
+          setModuleStatus(true);
+        }
+      } catch (error) {
+        setModuleStatus(true);
+      }
+    };
+    checkModule();
     fetchData();
   }, []);
 
@@ -57,7 +80,7 @@ export default function BankingPage() {
       if (transactionsRes.ok) {
         const data = await transactionsRes.json();
         setRecentTransactions(data.slice(0, 10));
-        
+
         let income = 0, expense = 0;
         data.forEach((t: Transaction) => {
           if (['INCOME', 'RECEIVE', 'SALE', 'INVESTMENT', 'DEPOSIT'].includes(t.transaction_type)) {
@@ -75,6 +98,24 @@ export default function BankingPage() {
   };
 
   const isMoneyIn = (type: string) => ['INCOME', 'RECEIVE', 'SALE', 'INVESTMENT', 'DEPOSIT'].includes(type);
+
+  if (moduleStatus === false) {
+    return (
+      <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-xl w-full">
+          <ModuleDisabled moduleName="Banking" />
+        </div>
+      </div>
+    );
+  }
+
+  if (moduleStatus === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -115,7 +156,7 @@ export default function BankingPage() {
               <Wallet className="w-4 h-4 text-blue-600" />
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              TK {totalBalance.toFixed(2)}
+              {formatC(totalBalance)}
             </p>
           </div>
 
@@ -126,7 +167,7 @@ export default function BankingPage() {
               <TrendingUp className="w-4 h-4 text-green-600" />
             </div>
             <p className="text-2xl font-bold text-green-600">
-              TK {totalIncome.toFixed(2)}
+              {formatC(totalIncome)}
             </p>
           </div>
 
@@ -137,7 +178,7 @@ export default function BankingPage() {
               <TrendingDown className="w-4 h-4 text-red-600" />
             </div>
             <p className="text-2xl font-bold text-red-600">
-              TK {totalExpense.toFixed(2)}
+              {formatC(totalExpense)}
             </p>
           </div>
 
@@ -147,10 +188,9 @@ export default function BankingPage() {
               <p className="text-gray-600 text-sm">Net Cash Flow</p>
               <DollarSign className="w-4 h-4 text-purple-600" />
             </div>
-            <p className={`text-2xl font-bold ${
-              totalIncome - totalExpense >= 0 ? 'text-purple-600' : 'text-red-600'
-            }`}>
-              TK {(totalIncome - totalExpense).toFixed(2)}
+            <p className={`text-2xl font-bold ${totalIncome - totalExpense >= 0 ? 'text-purple-600' : 'text-red-600'
+              }`}>
+              {formatC(totalIncome - totalExpense)}
             </p>
           </div>
         </div>
@@ -208,7 +248,7 @@ export default function BankingPage() {
                       </div>
                       <p className="text-xs text-gray-500 mb-2">{account.bank_name}</p>
                       <p className="text-lg font-bold text-blue-600">
-                        TK {account.current_balance.toFixed(2)}
+                        {formatC(account.current_balance)}
                       </p>
                     </div>
                   ))}
@@ -244,21 +284,19 @@ export default function BankingPage() {
                           <td className="py-3 px-3 text-gray-900">{transaction.account_name}</td>
                           <td className="py-3 px-3 text-gray-900">{transaction.category_name}</td>
                           <td className="py-3 px-3">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              isMoneyIn(transaction.transaction_type)
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${isMoneyIn(transaction.transaction_type)
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                              }`}>
                               {transaction.transaction_type}
                             </span>
                           </td>
-                          <td className={`py-3 px-3 text-right font-semibold ${
-                            isMoneyIn(transaction.transaction_type)
-                              ? 'text-green-600'
-                              : 'text-red-600'
-                          }`}>
+                          <td className={`py-3 px-3 text-right font-semibold ${isMoneyIn(transaction.transaction_type)
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                            }`}>
                             {isMoneyIn(transaction.transaction_type) ? '+' : '-'}
-                            TK {transaction.amount.toFixed(2)}
+                            {formatC(transaction.amount)}
                           </td>
                         </tr>
                       ))}
