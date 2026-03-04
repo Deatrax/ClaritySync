@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface Product {
   product_id: number;
@@ -58,6 +59,8 @@ export default function InventoryPage() {
     serial_number: '',
     account_id: ''
   });
+
+  const { format: formatC } = useCurrency();
 
   const fetchProducts = async () => {
     try {
@@ -309,10 +312,10 @@ export default function InventoryPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                          ${parseFloat(String(item.purchase_price)).toFixed(2)}
+                          {formatC(parseFloat(String(item.purchase_price)))}
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-green-600">
-                          ${parseFloat(String(item.selling_price)).toFixed(2)}
+                          {formatC(parseFloat(String(item.selling_price)))}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           {item.serial_number ? (
@@ -339,6 +342,7 @@ export default function InventoryPage() {
             </div>
           </div>
         )}
+
 
         {/* Tab Content: Add Stock */}
         {activeTab === 'add-stock' && (
@@ -423,7 +427,7 @@ export default function InventoryPage() {
                     <option value="">Select Account</option>
                     {accounts.map(acc => (
                       <option key={acc.account_id} value={acc.account_id}>
-                        {acc.account_name} (TK {acc.current_balance})
+                        {acc.account_name} ({formatC(parseFloat(acc.current_balance))})
                       </option>
                     ))}
                   </select>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface Product {
   product_id: number;
@@ -73,6 +74,8 @@ export default function SalesPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const { user } = useAuth();
+
+  const { format: formatC } = useCurrency();
 
   // Form states
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
@@ -424,7 +427,7 @@ export default function SalesPage() {
                   </div>
 
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-lg font-bold text-blue-600">TK {item.selling_price.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-blue-600">{formatC(item.selling_price)}</span>
                     <span className={`text-xs font-semibold px-2 py-1 rounded ${item.quantity > 0
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
@@ -493,7 +496,7 @@ export default function SalesPage() {
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900 text-sm">{item.product_name}</p>
-                        <p className="text-xs text-gray-500">TK {item.price.toFixed(2)} each</p>
+                        <p className="text-xs text-gray-500">{formatC(item.price)} each</p>
                       </div>
                       <button
                         onClick={() => removeFromCart(item.inventory_id)}
@@ -524,7 +527,7 @@ export default function SalesPage() {
                         <Plus className="w-3 h-3" />
                       </button>
                       <span className="ml-auto text-sm font-semibold text-gray-900">
-                        TK {item.subtotal.toFixed(2)}
+                        {formatC(item.subtotal)}
                       </span>
                     </div>
                   </div>
@@ -538,29 +541,28 @@ export default function SalesPage() {
             <div className="border-t border-gray-200 pt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal:</span>
-                <span className="font-semibold">TK {subtotal.toFixed(2)}</span>
+                <span className="font-semibold">{formatC(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Tax (10%):</span>
-                <span className="font-semibold">TK {tax.toFixed(2)}</span>
+                <span className="font-semibold">{formatC(tax)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <label htmlFor="discount" className="text-gray-600">Discount:</label>
                 <div className="flex items-center gap-2">
-                  <span>TK</span>
                   <input
                     id="discount"
                     type="number"
                     value={discount}
                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    className="w-16 border border-gray-300 rounded px-2 py-1 text-sm"
+                    className="w-20 border border-gray-300 rounded px-2 py-1 text-sm text-right"
                     min="0"
                   />
                 </div>
               </div>
               <div className="flex justify-between text-lg font-bold bg-blue-50 p-3 rounded">
                 <span>Total:</span>
-                <span className="text-blue-600">TK {total.toFixed(2)}</span>
+                <span className="text-blue-600">{formatC(total)}</span>
               </div>
             </div>
           </div>
@@ -719,7 +721,7 @@ export default function SalesPage() {
                 >
                   {accounts.map(acc => (
                     <option key={acc.account_id} value={acc.account_id}>
-                      {acc.account_name} (Balance: TK {acc.current_balance})
+                      {acc.account_name} (Balance: {formatC(parseFloat(acc.current_balance))})
                     </option>
                   ))}
                 </select>
