@@ -296,9 +296,13 @@ export default function SalesPage() {
         account_id: paymentMethod === 'bank' ? selectedAccountId : null,
       };
 
+      const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:5000/api/sales', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(salePayload)
       });
 
