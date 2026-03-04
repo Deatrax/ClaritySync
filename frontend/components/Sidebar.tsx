@@ -22,7 +22,8 @@ import {
   KeyRound,
   CircleUser,
   Receipt,
-  ClipboardList
+  ClipboardList,
+  BarChart3
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
@@ -159,7 +160,7 @@ export default function Sidebar() {
         </span>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <NavItem href="/" icon={<LayoutDashboard />} label="Dashboard" active={pathname === '/'} />
         <NavItem href="/profile" icon={<CircleUser />} label="My Profile" active={pathname === '/profile'} />
 
@@ -167,6 +168,7 @@ export default function Sidebar() {
           <NavItem href="/inventory" icon={<Package />} label="Inventory" active={pathname.startsWith('/inventory')} />
         )}
         <NavItem href="/products" icon={<Package />} label="Products" active={pathname.startsWith('/products')} />
+        <NavItem href="/analytics" icon={<BarChart3 />} label="Analytics" active={pathname.startsWith('/analytics')} />
 
         {/* Sales Group */}
         {modules['SALES'] !== false && (
