@@ -109,15 +109,15 @@ const login = async (req, res) => {
         // Record successful login (proc_record_login also updates last_login)
         recordLogin(email, true, null, ip, userAgent);
 
-        // Fetch the employee's role via explicit query (more reliable than FK join)
+        // Fetch the employee's role via business_role FK
         let role = 'EMPLOYEE';
         if (user.employee_id) {
             const { data: empData } = await supabase
                 .from('employee')
-                .select('role')
+                .select('business_role_id, business_role:business_role_id(role_key)')
                 .eq('employee_id', user.employee_id)
                 .single();
-            if (empData?.role) role = empData.role;
+            if (empData?.business_role?.role_key) role = empData.business_role.role_key;
         }
 
         // Generate JWT token

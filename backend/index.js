@@ -31,6 +31,7 @@ const salaryRoutes = require('./routes/salaryRoutes');
 const employeeTypeRoutes = require('./routes/employeeTypeRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const warrantyRoutes = require('./routes/warrantyRoutes');
+const rolesRoutes = require('./routes/rolesRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -49,6 +50,7 @@ app.use('/api/settings/admin-users', adminUsersRoutes);
 app.use('/api/activity-log', logsRoutes);
 app.use('/api/settings/modules', moduleRoutes);
 app.use('/api/settings/general', settingsGeneralRoutes);
+app.use('/api/settings/roles', rolesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/salary', salaryRoutes);
 app.use('/api/employee-types', employeeTypeRoutes);
