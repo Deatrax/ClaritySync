@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useCurrency } from '@/app/utils/currency';
 
 export default function ContactDetailPage() {
     const params = useParams();
@@ -40,6 +41,8 @@ export default function ContactDetailPage() {
         transaction_type: 'RECEIVE'
     });
     const [accounts, setAccounts] = useState<any[]>([]);
+
+    const { format: formatC, symbol: currencySymbol } = useCurrency();
 
     useEffect(() => {
         async function fetchData() {
@@ -264,7 +267,7 @@ export default function ContactDetailPage() {
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                         <p className="text-gray-500 text-sm font-medium">Current Balance</p>
                         <div className={`text-2xl font-bold mt-1 ${parseFloat(String(contact.account_balance)) > 0 ? 'text-red-600' : parseFloat(String(contact.account_balance)) < 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                            ${Math.abs(contact.account_balance).toLocaleString()}
+                            {formatC(Math.abs(contact.account_balance))}
                             <span className="text-xs font-normal text-gray-400 ml-2">
                                 {parseFloat(String(contact.account_balance)) > 0 ? '(Receivable)' : parseFloat(String(contact.account_balance)) < 0 ? '(Payable)' : '(Paid)'}
                             </span>
@@ -272,7 +275,7 @@ export default function ContactDetailPage() {
                     </div>
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                         <p className="text-gray-500 text-sm font-medium">Total Spent</p>
-                        <div className="text-2xl font-bold mt-1 text-gray-900">${contact.stats?.totalSpent?.toLocaleString() || 0}</div>
+                        <div className="text-2xl font-bold mt-1 text-gray-900">{formatC(contact.stats?.totalSpent || 0)}</div>
                     </div>
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                         <p className="text-gray-500 text-sm font-medium">Total Transactions</p>
@@ -338,7 +341,7 @@ export default function ContactDetailPage() {
                                             {item.description}
                                         </td>
                                         <td className="px-6 py-4 text-right font-bold text-gray-900">
-                                            ${Math.abs(item.amount).toLocaleString()}
+                                            {formatC(Math.abs(item.amount))}
                                         </td>
                                     </tr>
                                 ))}
@@ -383,7 +386,7 @@ export default function ContactDetailPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{currencySymbol}</span>
                                     <input
                                         type="number"
                                         className="w-full pl-7 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
@@ -408,7 +411,7 @@ export default function ContactDetailPage() {
 
                                     {accounts.map(acc => (
                                         <option key={acc.account_id} value={acc.account_id}>
-                                            {acc.account_name} (৳{acc.current_balance})
+                                            {acc.account_name} ({formatC(acc.current_balance)})
                                         </option>
                                     ))}
                                 </select>

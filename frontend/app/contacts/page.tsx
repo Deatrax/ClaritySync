@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface Contact {
   contact_id: number;
@@ -30,6 +31,8 @@ export default function ContactsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+  const { format: formatC } = useCurrency();
 
   useEffect(() => {
     const checkModule = async () => {
@@ -203,7 +206,7 @@ export default function ContactsPage() {
                     <td className="px-6 py-4 text-right">
                       <div className={`font-bold ${parseFloat(String(contact.account_balance)) > 0 ? 'text-red-600' : parseFloat(String(contact.account_balance)) < 0 ? 'text-green-600' : 'text-gray-500'}`}>
                         {parseFloat(String(contact.account_balance)) > 0 ? 'Receivable: ' : parseFloat(String(contact.account_balance)) < 0 ? 'Payable: ' : ''}
-                        ${Math.abs(contact.account_balance).toLocaleString()}
+                        {formatC(Math.abs(contact.account_balance))}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">

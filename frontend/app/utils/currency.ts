@@ -1,3 +1,5 @@
+import { useSettings } from '../context/SettingsContext';
+
 /**
  * Formats a monetary amount using the configured currency symbol and position.
  *
@@ -10,9 +12,31 @@ export function formatCurrency(
     symbol: string,
     position: 'BEFORE' | 'AFTER'
 ): string {
-    const formatted = amount.toLocaleString('en-US', {
+    const formatted = (amount || 0).toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
     return position === 'BEFORE' ? `${symbol}${formatted}` : `${formatted} ${symbol}`;
+}
+
+/**
+ * Hook to use the global currency settings.
+ */
+export function useCurrency() {
+    const { settings } = useSettings();
+
+    const format = (amount: number) => {
+        return formatCurrency(
+            amount,
+            settings?.currency_symbol || '$',
+            settings?.currency_position || 'BEFORE'
+        );
+    };
+
+    return {
+        format,
+        symbol: settings?.currency_symbol || '$',
+        position: settings?.currency_position || 'BEFORE',
+        code: settings?.currency_code || 'USD'
+    };
 }

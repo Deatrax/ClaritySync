@@ -20,20 +20,38 @@ export interface GeneralSettings {
     updated_by_name: string | null;
 }
 
+export const DEFAULT_SETTINGS: GeneralSettings = {
+    id: 1,
+    company_name: 'ClaritySync',
+    company_email: null,
+    company_phone: null,
+    company_address: null,
+    company_website: null,
+    currency_code: 'USD',
+    currency_symbol: '$',
+    currency_position: 'BEFORE',
+    logo_url: null,
+    favicon_url: null,
+    social_banner_url: null,
+    updated_at: null,
+    updated_by: null,
+    updated_by_name: null,
+};
+
 interface SettingsContextType {
-    settings: GeneralSettings | null;
+    settings: GeneralSettings;
     isLoading: boolean;
     refetch: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextType>({
-    settings: null,
+    settings: DEFAULT_SETTINGS,
     isLoading: true,
     refetch: () => { },
 });
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-    const [settings, setSettings] = useState<GeneralSettings | null>(null);
+    const [settings, setSettings] = useState<GeneralSettings>(DEFAULT_SETTINGS);
     const [isLoading, setIsLoading] = useState(true);
     const [tick, setTick] = useState(0);
 
@@ -49,9 +67,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         })
             .then((r) => (r.ok ? r.json() : null))
             .then((data) => {
-                if (data) setSettings(data);
+                if (data && data.id) {
+                    setSettings(data);
+                } else {
+                    setSettings(DEFAULT_SETTINGS);
+                }
             })
-            .catch((err) => console.error('SettingsContext fetch error:', err))
+            .catch((err) => {
+                console.error('SettingsContext fetch error:', err);
+                setSettings(DEFAULT_SETTINGS);
+            })
             .finally(() => setIsLoading(false));
     }, [tick]);
 

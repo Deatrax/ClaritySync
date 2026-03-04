@@ -131,7 +131,7 @@ export default function GeneralSettingsPage() {
         }
     };
 
-    if (authLoading || !settings) {
+    if (authLoading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <RefreshCw className="animate-spin text-indigo-500" size={32} />

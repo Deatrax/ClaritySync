@@ -11,12 +11,15 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 export default function TransactionsListPage() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+    const { format: formatC } = useCurrency();
 
     useEffect(() => {
         const checkModule = async () => {
@@ -189,7 +192,7 @@ export default function TransactionsListPage() {
                                                     : 'text-red-600'
                                                 }`}>
                                                 {t.transaction_type === 'RECEIVE' || t.transaction_type === 'INCOME' || t.transaction_type === 'SALE' ? '+' : '-'}
-                                                ৳{Number(t.amount).toLocaleString()}
+                                                {formatC(Number(t.amount))}
                                             </td>
                                         </tr>
                                     ))

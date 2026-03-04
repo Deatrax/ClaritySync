@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface BankAccount {
   account_id: number;
@@ -37,6 +38,8 @@ export default function BankingPage() {
   const [totalExpense, setTotalExpense] = useState(0);
   const [totalBalance, setTotalBalance] = useState(0);
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+  const { format: formatC } = useCurrency();
 
   useEffect(() => {
     const checkModule = async () => {
@@ -153,7 +156,7 @@ export default function BankingPage() {
               <Wallet className="w-4 h-4 text-blue-600" />
             </div>
             <p className="text-2xl font-bold text-gray-900">
-              TK {totalBalance.toFixed(2)}
+              {formatC(totalBalance)}
             </p>
           </div>
 
@@ -164,7 +167,7 @@ export default function BankingPage() {
               <TrendingUp className="w-4 h-4 text-green-600" />
             </div>
             <p className="text-2xl font-bold text-green-600">
-              TK {totalIncome.toFixed(2)}
+              {formatC(totalIncome)}
             </p>
           </div>
 
@@ -175,7 +178,7 @@ export default function BankingPage() {
               <TrendingDown className="w-4 h-4 text-red-600" />
             </div>
             <p className="text-2xl font-bold text-red-600">
-              TK {totalExpense.toFixed(2)}
+              {formatC(totalExpense)}
             </p>
           </div>
 
@@ -187,7 +190,7 @@ export default function BankingPage() {
             </div>
             <p className={`text-2xl font-bold ${totalIncome - totalExpense >= 0 ? 'text-purple-600' : 'text-red-600'
               }`}>
-              TK {(totalIncome - totalExpense).toFixed(2)}
+              {formatC(totalIncome - totalExpense)}
             </p>
           </div>
         </div>
@@ -245,7 +248,7 @@ export default function BankingPage() {
                       </div>
                       <p className="text-xs text-gray-500 mb-2">{account.bank_name}</p>
                       <p className="text-lg font-bold text-blue-600">
-                        TK {account.current_balance.toFixed(2)}
+                        {formatC(account.current_balance)}
                       </p>
                     </div>
                   ))}
@@ -282,18 +285,18 @@ export default function BankingPage() {
                           <td className="py-3 px-3 text-gray-900">{transaction.category_name}</td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${isMoneyIn(transaction.transaction_type)
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
                               }`}>
                               {transaction.transaction_type}
                             </span>
                           </td>
                           <td className={`py-3 px-3 text-right font-semibold ${isMoneyIn(transaction.transaction_type)
-                              ? 'text-green-600'
-                              : 'text-red-600'
+                            ? 'text-green-600'
+                            : 'text-red-600'
                             }`}>
                             {isMoneyIn(transaction.transaction_type) ? '+' : '-'}
-                            TK {transaction.amount.toFixed(2)}
+                            {formatC(transaction.amount)}
                           </td>
                         </tr>
                       ))}

@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import ProductWithAttributesForm from '@/components/ProductWithAttributesForm';
 import ModuleDisabled from '@/components/ModuleDisabled';
+import { useCurrency } from '@/app/utils/currency';
 
 interface Category {
   category_id: number;
@@ -69,6 +70,8 @@ export default function InventoryPage() {
     serial_number: '',
     account_id: ''
   });
+
+  const { format: formatC } = useCurrency();
 
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
@@ -385,10 +388,10 @@ export default function InventoryPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                          ${parseFloat(String(item.purchase_price)).toFixed(2)}
+                          {formatC(parseFloat(String(item.purchase_price)))}
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-green-600">
-                          ${parseFloat(String(item.selling_price)).toFixed(2)}
+                          {formatC(parseFloat(String(item.selling_price)))}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           {item.serial_number ? (
@@ -476,7 +479,7 @@ export default function InventoryPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-bold text-gray-900">
-                          ${product.selling_price_estimate?.toLocaleString() || '—'}
+                          {product.selling_price_estimate ? formatC(product.selling_price_estimate) : '—'}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -636,7 +639,7 @@ export default function InventoryPage() {
                     <option value="">Select Account</option>
                     {accounts.map(acc => (
                       <option key={acc.account_id} value={acc.account_id}>
-                        {acc.account_name} (TK {acc.current_balance})
+                        {acc.account_name} ({formatC(parseFloat(acc.current_balance))})
                       </option>
                     ))}
                   </select>
