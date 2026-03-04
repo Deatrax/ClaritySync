@@ -5,6 +5,7 @@ import { Users, Search, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import ModuleDisabled from '@/components/ModuleDisabled';
 
 interface Employee {
     employee_id: number;
@@ -21,6 +22,28 @@ function EmployeesContent() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const checkModule = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch('http://localhost:5000/api/settings/modules', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const mod = data.find((m: any) => m.module_name === 'EMPLOYEES');
+                    setModuleStatus(mod?.is_enabled ?? true);
+                } else {
+                    setModuleStatus(true);
+                }
+            } catch (error) {
+                setModuleStatus(true);
+            }
+        };
+        checkModule();
+    }, []);
 
     const fetchEmployees = useCallback(async () => {
         if (!token) return;
@@ -47,6 +70,24 @@ function EmployeesContent() {
         }, 300);
         return () => clearTimeout(timer);
     }, [fetchEmployees]);
+
+    if (moduleStatus === false) {
+        return (
+            <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="max-w-xl w-full">
+                    <ModuleDisabled moduleName="Employees" />
+                </div>
+            </div>
+        );
+    }
+
+    if (moduleStatus === null) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col font-sans">

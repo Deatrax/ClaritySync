@@ -10,11 +10,34 @@ import {
     Plus
 } from 'lucide-react';
 import Link from 'next/link';
+import ModuleDisabled from '@/components/ModuleDisabled';
 
 export default function TransactionsListPage() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const checkModule = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch('http://localhost:5000/api/settings/modules', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const mod = data.find((m: any) => m.module_name === 'TRANSACTIONS');
+                    setModuleStatus(mod?.is_enabled ?? true);
+                } else {
+                    setModuleStatus(true);
+                }
+            } catch (error) {
+                setModuleStatus(true);
+            }
+        };
+        checkModule();
+    }, []);
 
     useEffect(() => {
         fetchTransactions();
@@ -22,7 +45,10 @@ export default function TransactionsListPage() {
 
     const fetchTransactions = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/transactions');
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:5000/api/transactions', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setTransactions(data);
@@ -39,6 +65,24 @@ export default function TransactionsListPage() {
         t.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t.account_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (moduleStatus === false) {
+        return (
+            <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="max-w-xl w-full">
+                    <ModuleDisabled moduleName="Transactions" />
+                </div>
+            </div>
+        );
+    }
+
+    if (moduleStatus === null) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -118,10 +162,10 @@ export default function TransactionsListPage() {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <span className={`p-1.5 rounded-full ${t.transaction_type === 'RECEIVE' || t.transaction_type === 'INCOME' || t.transaction_type === 'SALE'
-                                                            ? 'bg-green-100 text-green-600'
-                                                            : t.transaction_type === 'TRANSFER'
-                                                                ? 'bg-blue-100 text-blue-600'
-                                                                : 'bg-red-100 text-red-600'
+                                                        ? 'bg-green-100 text-green-600'
+                                                        : t.transaction_type === 'TRANSFER'
+                                                            ? 'bg-blue-100 text-blue-600'
+                                                            : 'bg-red-100 text-red-600'
                                                         }`}>
                                                         {t.transaction_type === 'RECEIVE' || t.transaction_type === 'INCOME' || t.transaction_type === 'SALE'
                                                             ? <ArrowDownLeft size={16} />
@@ -142,10 +186,10 @@ export default function TransactionsListPage() {
                                                 {t.contact_id ? 'Contact #' + t.contact_id : '-'}
                                             </td>
                                             <td className={`px-6 py-4 font-bold text-right ${t.transaction_type === 'RECEIVE' || t.transaction_type === 'INCOME' || t.transaction_type === 'SALE'
-                                                    ? 'text-green-600'
-                                                    : t.transaction_type === 'TRANSFER'
-                                                        ? 'text-blue-600'
-                                                        : 'text-red-600'
+                                                ? 'text-green-600'
+                                                : t.transaction_type === 'TRANSFER'
+                                                    ? 'text-blue-600'
+                                                    : 'text-red-600'
                                                 }`}>
                                                 {t.transaction_type === 'RECEIVE' || t.transaction_type === 'INCOME' || t.transaction_type === 'SALE' ? '+' : '-'}
                                                 ৳{Number(t.amount).toLocaleString()}

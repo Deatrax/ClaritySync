@@ -1,17 +1,18 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { 
-  Users, 
-  Search, 
-  Plus, 
-  ArrowUpDown, 
+import {
+  Users,
+  Search,
+  Plus,
+  ArrowUpDown,
   ChevronRight,
   Phone,
   Mail,
   MapPin
 } from 'lucide-react';
 import Link from 'next/link';
+import ModuleDisabled from '@/components/ModuleDisabled';
 
 interface Contact {
   contact_id: number;
@@ -28,6 +29,28 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+  const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkModule = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/settings/modules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const mod = data.find((m: any) => m.module_name === 'CONTACTS');
+          setModuleStatus(mod?.is_enabled ?? true);
+        } else {
+          setModuleStatus(true);
+        }
+      } catch (error) {
+        setModuleStatus(true);
+      }
+    };
+    checkModule();
+  }, []);
 
   useEffect(() => {
     async function fetchContacts() {
@@ -52,6 +75,24 @@ export default function ContactsPage() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, sortBy]);
 
+  if (moduleStatus === false) {
+    return (
+      <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-xl w-full">
+          <ModuleDisabled moduleName="Contacts" />
+        </div>
+      </div>
+    );
+  }
+
+  if (moduleStatus === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       {/* Header */}
@@ -69,8 +110,8 @@ export default function ContactsPage() {
                 Contact Directory
               </h1>
             </div>
-            
-            <Link 
+
+            <Link
               href="/contacts/new"
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors shadow-sm"
             >
@@ -86,9 +127,9 @@ export default function ContactsPage() {
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder="Search by name, phone, or email..." 
+            <input
+              type="text"
+              placeholder="Search by name, phone, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -96,7 +137,7 @@ export default function ContactsPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
-            <select 
+            <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
@@ -152,17 +193,17 @@ export default function ContactsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        ${contact.contact_type === 'CUSTOMER' ? 'bg-green-100 text-green-800' : 
-                          contact.contact_type === 'SUPPLIER' ? 'bg-purple-100 text-purple-800' : 
-                          'bg-blue-100 text-blue-800'}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        ${contact.contact_type === 'CUSTOMER' ? 'bg-green-100 text-green-800' :
+                          contact.contact_type === 'SUPPLIER' ? 'bg-purple-100 text-purple-800' :
+                            'bg-blue-100 text-blue-800'}`}>
                         {contact.contact_type}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className={`font-bold ${parseFloat(String(contact.account_balance)) > 0 ? 'text-red-600' : parseFloat(String(contact.account_balance)) < 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                         {parseFloat(String(contact.account_balance)) > 0 ? 'Receivable: ' : parseFloat(String(contact.account_balance)) < 0 ? 'Payable: ' : ''}
-                         ${Math.abs(contact.account_balance).toLocaleString()}
+                        {parseFloat(String(contact.account_balance)) > 0 ? 'Receivable: ' : parseFloat(String(contact.account_balance)) < 0 ? 'Payable: ' : ''}
+                        ${Math.abs(contact.account_balance).toLocaleString()}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">

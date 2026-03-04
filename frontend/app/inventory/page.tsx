@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { 
-  Package, 
-  Search, 
-  Plus, 
-  ArrowUpDown, 
+import {
+  Package,
+  Search,
+  Plus,
+  ArrowUpDown,
   ChevronRight,
   AlertCircle,
   Edit2,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ProductWithAttributesForm from '@/components/ProductWithAttributesForm';
+import ModuleDisabled from '@/components/ModuleDisabled';
 
 interface Category {
   category_id: number;
@@ -69,17 +70,15 @@ export default function InventoryPage() {
     account_id: ''
   });
 
-  // Fetch data
-  useEffect(() => {
-    fetchProducts();
-    fetchInventory();
-    fetchCategories();
-    fetchAccounts();
-  }, []);
+  const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
+  // Fetch data
   const fetchProducts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/products');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         console.log('Products fetched:', data);
@@ -97,7 +96,10 @@ export default function InventoryPage() {
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/inventory');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/inventory', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setInventory(data);
@@ -109,7 +111,10 @@ export default function InventoryPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/categories');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/categories', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setCategories(data);
@@ -121,19 +126,66 @@ export default function InventoryPage() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/accounts');
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setAccounts(data);
         // Set default account if available and not yet set
         if (data.length > 0 && !stockForm.account_id) {
-           setStockForm(prev => ({ ...prev, account_id: data[0].account_id.toString() }));
+          setStockForm(prev => ({ ...prev, account_id: data[0].account_id.toString() }));
         }
       }
     } catch (error) {
       console.error("Failed to fetch accounts", error);
     }
   };
+
+  useEffect(() => {
+    const checkModule = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/settings/modules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const mod = data.find((m: any) => m.module_name === 'INVENTORY');
+          setModuleStatus(mod?.is_enabled ?? true);
+        } else {
+          setModuleStatus(true);
+        }
+      } catch (error) {
+        setModuleStatus(true);
+      }
+    };
+
+    checkModule();
+    fetchProducts();
+    fetchInventory();
+    fetchCategories();
+    fetchAccounts();
+  }, []);
+
+  if (moduleStatus === false) {
+    return (
+      <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-xl w-full">
+          <ModuleDisabled moduleName="Inventory" />
+        </div>
+      </div>
+    );
+  }
+
+  if (moduleStatus === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   // Handle Add Stock
   const handleAddStock = async (e: React.FormEvent) => {
@@ -178,12 +230,12 @@ export default function InventoryPage() {
     }
   };
 
-  const filteredProducts = products.filter(p => 
+  const filteredProducts = products.filter(p =>
     p.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.brand?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredInventory = inventory.filter(i => 
+  const filteredInventory = inventory.filter(i =>
     i.product_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -237,11 +289,10 @@ export default function InventoryPage() {
       <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Message Alert */}
         {message && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-800' 
-              : 'bg-red-50 border border-red-200 text-red-800'
-          }`}>
+          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${message.type === 'success'
+            ? 'bg-green-50 border border-green-200 text-green-800'
+            : 'bg-red-50 border border-red-200 text-red-800'
+            }`}>
             <AlertCircle className="w-5 h-5" />
             <span>{message.text}</span>
           </div>
@@ -252,44 +303,40 @@ export default function InventoryPage() {
           <div className="flex gap-0 flex-wrap">
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'inventory'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'inventory'
+                ? 'border-b-blue-600 text-blue-600 bg-blue-50'
+                : 'border-b-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               <Package className="w-4 h-4 inline mr-2" />
               Current Stock
             </button>
             <button
               onClick={() => setActiveTab('products')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'products'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'products'
+                ? 'border-b-blue-600 text-blue-600 bg-blue-50'
+                : 'border-b-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               <Package className="w-4 h-4 inline mr-2" />
               Product List
             </button>
             <button
               onClick={() => setActiveTab('add-product')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'add-product'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'add-product'
+                ? 'border-b-blue-600 text-blue-600 bg-blue-50'
+                : 'border-b-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               <Plus className="w-4 h-4 inline mr-2" />
               Add New Product
             </button>
             <button
               onClick={() => setActiveTab('add-stock')}
-              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${
-                activeTab === 'add-stock'
-                  ? 'border-b-blue-600 text-blue-600 bg-blue-50'
-                  : 'border-b-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`flex-1 min-w-max px-6 py-4 font-medium border-b-2 transition-colors ${activeTab === 'add-stock'
+                ? 'border-b-blue-600 text-blue-600 bg-blue-50'
+                : 'border-b-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               <Plus className="w-4 h-4 inline mr-2" />
               Add Stock
@@ -303,9 +350,9 @@ export default function InventoryPage() {
             <div className="mb-6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input 
-                  type="text" 
-                  placeholder="Search inventory by product name..." 
+                <input
+                  type="text"
+                  placeholder="Search inventory by product name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -363,13 +410,12 @@ export default function InventoryPage() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            item.status === 'IN_STOCK'
-                              ? 'bg-green-100 text-green-800'
-                              : item.status === 'SOLD'
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.status === 'IN_STOCK'
+                            ? 'bg-green-100 text-green-800'
+                            : item.status === 'SOLD'
                               ? 'bg-gray-100 text-gray-800'
                               : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                            }`}>
                             {item.status}
                           </span>
                         </td>
@@ -388,9 +434,9 @@ export default function InventoryPage() {
             <div className="mb-6">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input 
-                  type="text" 
-                  placeholder="Search products by name or brand..." 
+                <input
+                  type="text"
+                  placeholder="Search products by name or brand..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -434,11 +480,10 @@ export default function InventoryPage() {
                           {product.brand || '—'}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            product.has_serial_number
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${product.has_serial_number
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                            }`}>
                             {product.has_serial_number ? 'Yes' : 'No'}
                           </span>
                         </td>
@@ -450,7 +495,7 @@ export default function InventoryPage() {
                             <button className="text-blue-600 hover:text-blue-800 p-2 rounded-full hover:bg-blue-50 transition-colors">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteProduct(product.product_id)}
                               className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50 transition-colors"
                             >
@@ -470,7 +515,7 @@ export default function InventoryPage() {
         {activeTab === 'add-product' && (
           <div className="max-w-2xl bg-white rounded-xl border border-gray-200 shadow-sm p-8">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Add New Product</h2>
-            
+
             {categories.length === 0 && (
               <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -485,14 +530,14 @@ export default function InventoryPage() {
                           headers: { 'Content-Type': 'application/json' }
                         });
                         const data = await res.json();
-                        
+
                         if (res.ok) {
                           await fetchCategories();
-                          const msg = data.skipped > 0 
+                          const msg = data.skipped > 0
                             ? `${data.count} new categories added (${data.skipped} already existed)!`
                             : data.count === 0
-                            ? 'All categories already exist!'
-                            : `${data.count} categories added!`;
+                              ? 'All categories already exist!'
+                              : `${data.count} categories added!`;
                           setMessage({ type: 'success', text: msg });
                           setTimeout(() => setMessage(null), 3000);
                         } else {
@@ -528,9 +573,9 @@ export default function InventoryPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
-                  <select 
+                  <select
                     value={stockForm.product_id}
-                    onChange={(e) => setStockForm({...stockForm, product_id: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, product_id: e.target.value })}
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
@@ -545,21 +590,21 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="Supplier ID or name"
                     value={stockForm.supplier_id}
-                    onChange={(e) => setStockForm({...stockForm, supplier_id: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, supplier_id: e.target.value })}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={stockForm.quantity}
-                    onChange={(e) => setStockForm({...stockForm, quantity: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })}
                     placeholder="0"
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
@@ -568,11 +613,11 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Purchase Price (per unit)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.01"
                     value={stockForm.purchase_price}
-                    onChange={(e) => setStockForm({...stockForm, purchase_price: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, purchase_price: e.target.value })}
                     placeholder="0.00"
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
@@ -581,11 +626,11 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Selling Price (per unit)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.01"
                     value={stockForm.selling_price}
-                    onChange={(e) => setStockForm({...stockForm, selling_price: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, selling_price: e.target.value })}
                     placeholder="0.00"
                     required
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
@@ -594,9 +639,9 @@ export default function InventoryPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Payment Account</label>
-                  <select 
+                  <select
                     value={stockForm.account_id}
-                    onChange={(e) => setStockForm({...stockForm, account_id: e.target.value})}
+                    onChange={(e) => setStockForm({ ...stockForm, account_id: e.target.value })}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                     required
                   >
@@ -612,16 +657,16 @@ export default function InventoryPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Serial Number (if applicable)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={stockForm.serial_number}
-                  onChange={(e) => setStockForm({...stockForm, serial_number: e.target.value})}
+                  onChange={(e) => setStockForm({ ...stockForm, serial_number: e.target.value })}
                   placeholder="Leave empty if not applicable"
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 />
               </div>
 
-              <button 
+              <button
                 type="submit"
                 disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 rounded-lg transition-colors"
