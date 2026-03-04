@@ -46,6 +46,7 @@ const getAllSales = async (req, res) => {
             .select(`
                 sale_id,
                 contact_id,
+                customer_name,
                 total_amount,
                 discount,
                 payment_method,
@@ -67,6 +68,7 @@ const getAllSales = async (req, res) => {
 const createSale = async (req, res) => {
     const {
         contact_id,
+        customer_name,
         items,
         discount,
         total,
@@ -108,6 +110,7 @@ const createSale = async (req, res) => {
         //    inventory update, and transaction/due balance via triggers.
         const { data, error } = await supabase.rpc('sp_create_sale', {
             p_contact_id: contact_id || null,
+            p_customer_name: customer_name || null,
             p_total_amount: total,
             p_discount: discount || 0,
             p_payment_method: payment_method,
@@ -157,6 +160,7 @@ const getSaleById = async (req, res) => {
             .from('sales')
             .select(`
                 *,
+                customer_name,
                 contacts (name, phone, email),
                 sale_item (
                     sale_item_id,
