@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useEffect, useState } from 'react';
 import {
   Package,
@@ -58,6 +59,15 @@ interface Account {
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'add-stock'>('inventory');
+
+  // Read ?tab= URL param on mount so deep-links like /inventory?tab=add-stock work
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'add-stock') {
+      setActiveTab('add-stock');
+    }
+  }, []);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [groupedInventory, setGroupedInventory] = useState<GroupedInventory[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);

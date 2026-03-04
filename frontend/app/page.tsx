@@ -10,8 +10,6 @@ import {
   Plus,
   Search,
   TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
   Settings,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -40,7 +38,12 @@ function DashboardContent() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch('/api/dashboard/stats');
+        const employeeId = user?.employee_id;
+        const url = employeeId
+          ? `/api/dashboard/stats?employee_id=${employeeId}`
+          : '/api/dashboard/stats';
+
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           setStats(data);
@@ -51,8 +54,11 @@ function DashboardContent() {
         setLoading(false);
       }
     }
-    fetchStats();
-  }, []);
+    // Only fetch once user context is ready
+    if (user !== undefined) {
+      fetchStats();
+    }
+  }, [user]);
 
   return (
     <div className="flex flex-col h-full bg-gray-50 text-gray-900 font-sans">
@@ -87,24 +93,18 @@ function DashboardContent() {
             value={stats?.totalProducts}
             loading={loading}
             icon={<Package className="text-blue-600" />}
-            trend="+12% this month"
-            trendUp
           />
           <StatCard
             title="Active Customers"
             value={stats?.totalCustomers}
             loading={loading}
             icon={<Users className="text-purple-600" />}
-            trend="+5 new today"
-            trendUp
           />
           <StatCard
             title="Cash on Hand"
             value={stats ? formatC(stats.totalBalance) : null}
             loading={loading}
             icon={<Wallet className="text-green-600" />}
-            trend="Updated just now"
-            trendUp={true} // Neutral
           />
         </section>
 
@@ -113,14 +113,14 @@ function DashboardContent() {
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <ActionButton
-              href="/sales/new"
+              href="/sales"
               title="New Sale"
               subtitle="Create Invoice"
               icon={<ShoppingCart className="w-6 h-6 text-white" />}
               color="bg-blue-600 hover:bg-blue-700"
             />
             <ActionButton
-              href="/inventory/add"
+              href="/inventory?tab=add-stock"
               title="Add Stock"
               subtitle="Purchase Inventory"
               icon={<Plus className="w-6 h-6 text-white" />}
@@ -134,9 +134,9 @@ function DashboardContent() {
               color="bg-emerald-600 hover:bg-emerald-700"
             />
             <ActionButton
-              href="/reports"
-              title="Reports"
-              subtitle="View Financials"
+              href="/analytics"
+              title="Analytics"
+              subtitle="View Reports"
               icon={<TrendingUp className="w-6 h-6 text-white" />}
               color="bg-orange-600 hover:bg-orange-700"
             />
@@ -147,7 +147,7 @@ function DashboardContent() {
         <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-800">Recent Activity</h2>
-            <button className="text-sm text-blue-600 hover:underline">View All</button>
+            <Link href="/activity-log" className="text-sm text-blue-600 hover:underline">View All</Link>
           </div>
           <div className="p-6 text-center text-gray-500 py-12">
             <p>No recent transactions to display.</p>
@@ -161,19 +161,13 @@ function DashboardContent() {
 
 // Components
 
-function StatCard({ title, value, loading, icon, trend, trendUp }: { title: string, value: number | string | null | undefined, loading: boolean, icon: React.ReactNode, trend?: string, trendUp?: boolean }) {
+function StatCard({ title, value, loading, icon }: { title: string, value: number | string | null | undefined, loading: boolean, icon: React.ReactNode }) {
   return (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-4">
         <div className="p-2 bg-gray-50 rounded-lg">
           {icon}
         </div>
-        {trend && (
-          <div className={`flex items-center text-xs font-medium ${trendUp ? 'text-green-600' : 'text-red-600'}`}>
-            {trendUp ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-            {trend}
-          </div>
-        )}
       </div>
       <h3 className="text-gray-500 text-sm font-medium">{title}</h3>
       <p className="text-2xl font-bold text-gray-900 mt-1">
