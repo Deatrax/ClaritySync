@@ -91,6 +91,73 @@ export default function SalesPage() {
   const [receiptToken, setReceiptToken] = useState('');
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
+  // Fetch functions — defined before the useEffect that calls them
+  const fetchInventory = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/inventory', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInventory(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch inventory', error);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/contacts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers', error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data);
+        if (data.length > 0) {
+          setSelectedAccountId(data[0].account_id.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch accounts', error);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/employees', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEmployees(data);
+        if (data.length > 0) {
+          setSelectedEmployeeId(data[0].employee_id.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch employees', error);
+    }
+  };
+
   // Fetch data on mount
   useEffect(() => {
     const checkModule = async () => {
@@ -118,6 +185,20 @@ export default function SalesPage() {
     fetchEmployees();
   }, []);
 
+  // Filter customers based on search
+  useEffect(() => {
+    if (customerSearch.trim() === '') {
+      setFilteredCustomers([]);
+    } else {
+      const filtered = customers.filter(c =>
+        (c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+          c.phone.includes(customerSearch)) &&
+        (c.contact_type === 'CUSTOMER' || c.contact_type === 'BOTH')
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [customerSearch, customers]);
+
   if (moduleStatus === false) {
     return (
       <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
@@ -135,75 +216,6 @@ export default function SalesPage() {
       </div>
     );
   }
-
-  // Filter customers based on search
-  useEffect(() => {
-    if (customerSearch.trim() === '') {
-      setFilteredCustomers([]);
-    } else {
-      const filtered = customers.filter(c =>
-        (c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-          c.phone.includes(customerSearch)) &&
-        (c.contact_type === 'CUSTOMER' || c.contact_type === 'BOTH')
-      );
-      setFilteredCustomers(filtered);
-    }
-  }, [customerSearch, customers]);
-
-  const fetchInventory = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/inventory');
-      if (res.ok) {
-        const data = await res.json();
-        setInventory(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch inventory', error);
-    }
-  };
-
-  const fetchCustomers = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/contacts');
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch customers', error);
-    }
-  };
-
-  const fetchAccounts = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/accounts');
-      if (res.ok) {
-        const data = await res.json();
-        setAccounts(data);
-        if (data.length > 0) {
-          setSelectedAccountId(data[0].account_id.toString());
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch accounts', error);
-    }
-  };
-
-  const fetchEmployees = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/employees');
-      if (res.ok) {
-        const data = await res.json();
-        setEmployees(data);
-        // Auto-select first employee if available (or logic based on logged in user later)
-        if (data.length > 0) {
-          setSelectedEmployeeId(data[0].employee_id.toString());
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch employees', error);
-    }
-  };
 
   const filteredInventory = inventory.filter(item =>
     item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||

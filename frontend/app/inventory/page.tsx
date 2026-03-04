@@ -73,6 +73,76 @@ export default function InventoryPage() {
   const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
 
   // Fetch data
+  const fetchProducts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        console.log('Products fetched:', data);
+        setProducts(data);
+      } else {
+        const error = await res.json();
+        console.error("Failed to fetch products:", error);
+        setMessage({ type: 'error', text: 'Failed to load products' });
+      }
+    } catch (error) {
+      console.error("Failed to fetch products", error);
+      setMessage({ type: 'error', text: 'Failed to connect to server' });
+    }
+  };
+
+  const fetchInventory = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/inventory', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInventory(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch inventory", error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/categories', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories", error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data);
+        // Set default account if available and not yet set
+        if (data.length > 0 && !stockForm.account_id) {
+          setStockForm(prev => ({ ...prev, account_id: data[0].account_id.toString() }));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch accounts", error);
+    }
+  };
+
   useEffect(() => {
     const checkModule = async () => {
       try {
@@ -116,64 +186,6 @@ export default function InventoryPage() {
       </div>
     );
   }
-
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/products');
-      if (res.ok) {
-        const data = await res.json();
-        console.log('Products fetched:', data);
-        setProducts(data);
-      } else {
-        const error = await res.json();
-        console.error("Failed to fetch products:", error);
-        setMessage({ type: 'error', text: 'Failed to load products' });
-      }
-    } catch (error) {
-      console.error("Failed to fetch products", error);
-      setMessage({ type: 'error', text: 'Failed to connect to server' });
-    }
-  };
-
-  const fetchInventory = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/inventory');
-      if (res.ok) {
-        const data = await res.json();
-        setInventory(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch inventory", error);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/categories');
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch categories", error);
-    }
-  };
-
-  const fetchAccounts = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/accounts');
-      if (res.ok) {
-        const data = await res.json();
-        setAccounts(data);
-        // Set default account if available and not yet set
-        if (data.length > 0 && !stockForm.account_id) {
-          setStockForm(prev => ({ ...prev, account_id: data[0].account_id.toString() }));
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch accounts", error);
-    }
-  };
 
   // Handle Add Stock
   const handleAddStock = async (e: React.FormEvent) => {
