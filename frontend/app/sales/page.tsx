@@ -90,6 +90,7 @@ export default function SalesPage() {
   // Form states
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [walkinName, setWalkinName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank' | 'due'>('cash');
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -405,6 +406,7 @@ export default function SalesPage() {
     try {
       const salePayload = {
         contact_id: customerType === 'registered' && selectedCustomer ? selectedCustomer.contact_id : null,
+        customer_name: customerType === 'walk-in' && walkinName.trim() ? walkinName.trim() : null,
         is_walk_in: customerType === 'walk-in',
         items: cart.map(item => ({
           inventory_id: item.inventory_id,
@@ -439,6 +441,7 @@ export default function SalesPage() {
         setReceiptToken(result.public_receipt_token || result.sale_id);
         setCart([]);
         setSelectedCustomer(null);
+        setWalkinName('');
         setCustomerSearch('');
         setDiscount(0);
       } else {
@@ -462,6 +465,7 @@ export default function SalesPage() {
     setReceiptToken('');
     setCart([]);
     setSelectedCustomer(null);
+    setWalkinName('');
     setCustomerType('walk-in');
     setPaymentMethod('cash');
     setDiscount(0);
@@ -787,6 +791,26 @@ export default function SalesPage() {
                 </label>
               </div>
             </div>
+
+            {/* Walk-in Customer Name (Optional) */}
+            {customerType === 'walk-in' && (
+              <div className="space-y-1">
+                <label htmlFor="walkin-name" className="text-sm font-semibold text-gray-900">
+                  Customer Name <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    id="walkin-name"
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={walkinName}
+                    onChange={(e) => setWalkinName(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Customer Search (Registered Only) */}
             {customerType === 'registered' && (

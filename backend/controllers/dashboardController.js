@@ -99,6 +99,7 @@ const getRecentActivity = async (req, res) => {
                 payment_method,
                 public_receipt_token,
                 sale_date,
+                customer_name,
                 contact:contact_id (name)
             `)
             .order('sale_date', { ascending: false })
@@ -130,8 +131,8 @@ const getRecentActivity = async (req, res) => {
             transaction_id: null,
             type: 'SALE',
             amount: parseFloat(s.total_amount),
-            description: `Invoice #${s.sale_id}${s.contact?.name ? ` — ${s.contact.name}` : ' — Walk-in'}`,
-            contact_name: s.contact?.name || null,
+            description: `Invoice #${s.sale_id}${s.contact?.name ? ` — ${s.contact.name}` : s.customer_name ? ` — ${s.customer_name}` : ' — Walk-in'}`,
+            contact_name: s.contact?.name || s.customer_name || null,
             account_name: null,
             date: s.sale_date,
             sale_id: s.sale_id,

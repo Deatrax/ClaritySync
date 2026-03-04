@@ -140,6 +140,11 @@ export default function SaleDetailsPage() {
                                 )}
                             </div>
                         </div>
+                    ) : sale.customer_name ? (
+                        <div className="flex items-center gap-2 text-gray-900 font-medium">
+                            <User className="w-4 h-4 text-gray-400" /> {sale.customer_name}
+                            <span className="text-sm text-gray-400 italic font-normal">(Walk-in)</span>
+                        </div>
                     ) : (
                         <div className="text-gray-500 font-medium italic">Walk-in Customer</div>
                     )}
