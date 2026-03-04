@@ -1,7 +1,7 @@
 const supabase = require('../db');
 const { logActivity } = require('../utils/activityLogger');
 
-const FULL_FIELDS = 'employee_id, name, designation, phone, email, basic_salary, join_date, is_active, role, photo_url, nid_photo_url, address, employee_type_id, created_at';
+const FULL_FIELDS = 'employee_id, name, designation, phone, email, basic_salary, join_date, is_active, business_role_id, photo_url, nid_photo_url, address, employee_type_id, created_at';
 
 // GET /api/employees?search=&active_only=true
 const getAllEmployees = async (req, res) => {
@@ -9,7 +9,7 @@ const getAllEmployees = async (req, res) => {
     try {
         let query = supabase
             .from('employee')
-            .select('employee_id, name, designation, phone, email, basic_salary, join_date, is_active, role, photo_url, created_at');
+            .select('employee_id, name, designation, phone, email, basic_salary, join_date, is_active, business_role_id, photo_url, created_at, business_role:business_role_id(role_key, display_name)');
 
         if (active_only === 'true') query = query.eq('is_active', true);
         if (search) {
@@ -98,11 +98,22 @@ const getEmployeeById = async (req, res) => {
 
 // POST /api/employees
 const createEmployee = async (req, res) => {
-    const { name, designation, phone, email, basic_salary, join_date, is_active, role, address, photo_url, nid_photo_url, employee_type_id } = req.body;
+    const { name, designation, phone, email, basic_salary, join_date, is_active, business_role_id, address, photo_url, nid_photo_url, employee_type_id } = req.body;
 
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
     try {
+        // Default to EMPLOYEE role if not specified
+        let roleId = business_role_id;
+        if (!roleId) {
+            const { data: defaultRole } = await supabase
+                .from('business_role')
+                .select('role_id')
+                .eq('role_key', 'EMPLOYEE')
+                .single();
+            roleId = defaultRole?.role_id;
+        }
+
         const { data, error } = await supabase
             .from('employee')
             .insert([{
@@ -113,7 +124,7 @@ const createEmployee = async (req, res) => {
                 basic_salary: basic_salary ? parseFloat(basic_salary) : null,
                 join_date: join_date || null,
                 is_active: is_active !== undefined ? is_active : true,
-                role: role || 'EMPLOYEE',
+                business_role_id: roleId,
                 address: address || null,
                 photo_url: photo_url || null,
                 nid_photo_url: nid_photo_url || null,
@@ -143,27 +154,29 @@ const createEmployee = async (req, res) => {
 // PUT /api/employees/:id
 const updateEmployee = async (req, res) => {
     const { id } = req.params;
-    const { name, designation, phone, email, basic_salary, join_date, is_active, role, address, photo_url, nid_photo_url, employee_type_id } = req.body;
+    const { name, designation, phone, email, basic_salary, join_date, is_active, business_role_id, address, photo_url, nid_photo_url, employee_type_id } = req.body;
 
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
     try {
+        const updateData = {
+            name,
+            designation: designation || null,
+            phone: phone || null,
+            email: email || null,
+            basic_salary: basic_salary ? parseFloat(basic_salary) : null,
+            join_date: join_date || null,
+            is_active: is_active !== undefined ? is_active : true,
+            address: address || null,
+            photo_url: photo_url || null,
+            nid_photo_url: nid_photo_url || null,
+            employee_type_id: employee_type_id || null,
+        };
+        if (business_role_id) updateData.business_role_id = business_role_id;
+
         const { data, error } = await supabase
             .from('employee')
-            .update({
-                name,
-                designation: designation || null,
-                phone: phone || null,
-                email: email || null,
-                basic_salary: basic_salary ? parseFloat(basic_salary) : null,
-                join_date: join_date || null,
-                is_active: is_active !== undefined ? is_active : true,
-                role: role || 'EMPLOYEE',
-                address: address || null,
-                photo_url: photo_url || null,
-                nid_photo_url: nid_photo_url || null,
-                employee_type_id: employee_type_id || null,
-            })
+            .update(updateData)
             .eq('employee_id', id)
             .select(FULL_FIELDS)
             .single();

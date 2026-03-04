@@ -311,6 +311,7 @@ export default function Sidebar() {
                   <NavItem href="/settings/general" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="General" subItem active={pathname === '/settings/general'} />
                   <NavItem href="/settings/admin-users" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Administrator Users" subItem active={pathname === '/settings/admin-users'} />
                   <NavItem href="/settings/modules" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Module Management" subItem active={pathname === '/settings/modules'} />
+                  <NavItem href="/settings/roles" icon={<div className="w-1 h-1 rounded-full bg-current" />} label="Roles & Access" subItem active={pathname === '/settings/roles'} />
                 </>
               )}
             </div>
