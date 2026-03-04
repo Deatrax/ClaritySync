@@ -45,6 +45,18 @@ const getInventory = async (req, res) => {
 const addStock = async (req, res) => {
     const { product_id, supplier_id, quantity, purchase_price, selling_price, serial_number, account_id, employee_id } = req.body;
     try {
+        let userIdForTransaction = null;
+        if (employee_id) {
+            const { data: userData } = await supabase
+                .from('user_account')
+                .select('user_id')
+                .eq('employee_id', employee_id)
+                .single();
+            if (userData) {
+                userIdForTransaction = userData.user_id;
+            }
+        }
+
         // Call RPC to process payment and add stock
         // This RPC handles both inserting into inventory AND recording the expense transaction.
         const totalCost = purchase_price * quantity;
@@ -56,7 +68,7 @@ const addStock = async (req, res) => {
             p_selling_price: selling_price,
             p_serial_number: serial_number || null,
             p_account_id: parseInt(account_id),
-            p_created_by: employee_id || null
+            p_created_by: userIdForTransaction
         });
 
         if (rpcError) throw rpcError;

@@ -88,6 +88,19 @@ const createSale = async (req, res) => {
         // 2. Generate receipt token (stays in JS — uses Date.now + random)
         const receiptToken = `RECEIPT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+        // Get user_id for the transaction from the employee_id
+        let userIdForTransaction = null;
+        if (employee_id) {
+            const { data: userData } = await supabase
+                .from('user_account')
+                .select('user_id')
+                .eq('employee_id', employee_id)
+                .single();
+            if (userData) {
+                userIdForTransaction = userData.user_id;
+            }
+        }
+
         // 3. Call Supabase RPC — handles sale insert, sale_item bulk-insert,
         //    inventory update, and transaction/due balance via triggers.
         const { data, error } = await supabase.rpc('sp_create_sale', {
@@ -105,7 +118,7 @@ const createSale = async (req, res) => {
                 unit_price: item.unit_price,
                 subtotal: item.subtotal
             })),
-            p_created_by: employee_id || null
+            p_created_by: userIdForTransaction
         });
 
         if (error) throw error;
