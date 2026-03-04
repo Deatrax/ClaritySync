@@ -1,4 +1,5 @@
 const supabase = require('../db');
+const { logActivity } = require('../utils/activityLogger');
 
 // GET /api/products
 const getAllProducts = async (req, res) => {
@@ -62,6 +63,15 @@ const createProduct = async (req, res) => {
 
         if (error) throw error;
 
+        logActivity(req, {
+            action: 'INSERT',
+            module: 'PRODUCTS',
+            targetTable: 'product',
+            targetId: data.product_id,
+            description: `Created product: ${product_name}`,
+            newValues: data
+        });
+
         res.status(201).json({
             message: 'Product created successfully with attributes',
             product_id: data.product_id,
@@ -92,6 +102,14 @@ const deleteProduct = async (req, res) => {
         if (!data || data.length === 0) {
             return res.status(404).json({ error: 'Product not found' });
         }
+
+        logActivity(req, {
+            action: 'DELETE',
+            module: 'PRODUCTS',
+            targetTable: 'product',
+            targetId: parseInt(id),
+            description: `Deleted product ID: ${id}`
+        });
 
         res.json({ message: 'Product deleted successfully', data: data[0] });
     } catch (err) {

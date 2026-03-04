@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '@/app/context/AuthContext';
 import {
   ShoppingCart,
   Search,
@@ -16,6 +17,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
+import ModuleDisabled from '@/components/ModuleDisabled';
 
 interface Product {
   product_id: number;
@@ -59,13 +61,6 @@ interface Account {
   current_balance: string;
 }
 
-interface Employee {
-  employee_id: number;
-  name: string;
-  email: string;
-  role: string;
-}
-
 export default function SalesPage() {
   const [activeTab, setActiveTab] = useState<'new-sale' | 'search'>('new-sale');
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -77,8 +72,7 @@ export default function SalesPage() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const { user } = useAuth();
 
   // Form states
   const [customerType, setCustomerType] = useState<'walk-in' | 'registered'>('walk-in');
@@ -89,15 +83,84 @@ export default function SalesPage() {
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
   const [saleComplete, setSaleComplete] = useState(false);
   const [receiptToken, setReceiptToken] = useState('');
+  const [moduleStatus, setModuleStatus] = useState<boolean | null>(null);
+
   // Warranty expiry alerts — keyed by inventory_id
   const [warrantyAlerts, setWarrantyAlerts] = useState<Record<number, { product_name: string; days_remaining: number; expires_at: string }>>({});
 
+  // Fetch functions — defined before the useEffect that calls them
+  const fetchInventory = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/inventory', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInventory(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch inventory', error);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/contacts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers', error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data);
+        if (data.length > 0) {
+          setSelectedAccountId(data[0].account_id.toString());
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch accounts', error);
+    }
+  };
+
   // Fetch data on mount
   useEffect(() => {
+    const checkModule = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/settings/modules', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const mod = data.find((m: any) => m.module_name === 'SALES');
+          setModuleStatus(mod?.is_enabled ?? true);
+        } else {
+          setModuleStatus(true);
+        }
+      } catch (error) {
+        setModuleStatus(true);
+      }
+    };
+
+    checkModule();
     fetchInventory();
     fetchCustomers();
     fetchAccounts();
-    fetchEmployees();
   }, []);
 
   // Filter customers based on search
@@ -114,60 +177,23 @@ export default function SalesPage() {
     }
   }, [customerSearch, customers]);
 
-  const fetchInventory = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/inventory');
-      if (res.ok) {
-        const data = await res.json();
-        setInventory(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch inventory', error);
-    }
-  };
+  if (moduleStatus === false) {
+    return (
+      <div className="p-8 min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-xl w-full">
+          <ModuleDisabled moduleName="Sales" />
+        </div>
+      </div>
+    );
+  }
 
-  const fetchCustomers = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/contacts');
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch customers', error);
-    }
-  };
-
-  const fetchAccounts = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/accounts');
-      if (res.ok) {
-        const data = await res.json();
-        setAccounts(data);
-        if (data.length > 0) {
-          setSelectedAccountId(data[0].account_id.toString());
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch accounts', error);
-    }
-  };
-
-  const fetchEmployees = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/employees');
-      if (res.ok) {
-        const data = await res.json();
-        setEmployees(data);
-        // Auto-select first employee if available (or logic based on logged in user later)
-        if (data.length > 0) {
-          setSelectedEmployeeId(data[0].employee_id.toString());
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch employees', error);
-    }
-  };
+  if (moduleStatus === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   const filteredInventory = inventory.filter(item =>
     item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -265,7 +291,6 @@ export default function SalesPage() {
         payment_method: paymentMethod,
         payment_status: paymentMethod === 'due' ? 'DUE' : 'PAID',
         account_id: paymentMethod === 'bank' ? selectedAccountId : null,
-        employee_id: paymentMethod === 'cash' ? selectedEmployeeId : null
       };
 
       const res = await fetch('http://localhost:5000/api/sales', {
@@ -401,8 +426,8 @@ export default function SalesPage() {
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-lg font-bold text-blue-600">TK {item.selling_price.toFixed(2)}</span>
                     <span className={`text-xs font-semibold px-2 py-1 rounded ${item.quantity > 0
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
                       }`}>
                       {item.quantity} in stock
                     </span>
@@ -412,8 +437,8 @@ export default function SalesPage() {
                     onClick={() => addToCart(item)}
                     disabled={item.quantity === 0}
                     className={`w-full py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${item.quantity > 0
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                       }`}
                   >
                     <Plus className="w-4 h-4" />
@@ -441,11 +466,12 @@ export default function SalesPage() {
               </p>
             </div>
           ))}
+
           {/* Message */}
           {message && (
             <div className={`rounded-lg p-4 mb-4 flex gap-3 ${message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-green-50 text-green-800 border border-green-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
               }`}>
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <p className="text-sm">{message.text}</p>
@@ -543,22 +569,13 @@ export default function SalesPage() {
           <form onSubmit={handleCompleteSale} className="bg-white rounded-lg shadow p-4 space-y-4 mt-4">
             <h3 className="text-lg font-bold text-gray-900">Checkout</h3>
 
-            {/* Employee Selection (For Cash Tracking) */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900">Sold By (Employee)</label>
-              <select
-                value={selectedEmployeeId}
-                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                required
-              >
-                <option value="">Select Employee</option>
-                {employees.map(emp => (
-                  <option key={emp.employee_id} value={emp.employee_id}>
-                    {emp.name} ({emp.role})
-                  </option>
-                ))}
-              </select>
+            {/* Sold By — auto from logged-in user */}
+            <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+              <User className="w-4 h-4 text-slate-500 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500 font-medium">Selling as</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{user?.email || 'Unknown'}</p>
+              </div>
             </div>
 
             {/* Customer Type */}
@@ -722,8 +739,8 @@ export default function SalesPage() {
               type="submit"
               disabled={loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)}
               className={`w-full py-3 rounded-lg font-semibold transition-colors text-white flex items-center justify-center gap-2 ${loading || cart.length === 0 || (customerType === 'registered' && !selectedCustomer)
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700'
                 }`}
             >
               <DollarSign className="w-5 h-5" />

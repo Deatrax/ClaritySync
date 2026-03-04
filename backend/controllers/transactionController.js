@@ -1,4 +1,5 @@
 const supabase = require('../db');
+const { logActivity } = require('../utils/activityLogger');
 
 // 9. Transactions Endpoints
 const getAllTransactions = async (req, res) => {
@@ -109,11 +110,21 @@ const createTransaction = async (req, res) => {
                 contact_id: contact_id ? parseInt(contact_id) : null,
                 category_id: category_id ? parseInt(category_id) : null,
                 description: description || null,
-                transaction_date: transaction_date || new Date().toISOString()
+                transaction_date: transaction_date || new Date().toISOString(),
+                created_by: req.user?.user_id || null
             }])
             .select();
 
         if (transError) throw transError;
+
+        logActivity(req, {
+            action: 'INSERT',
+            module: 'TRANSACTIONS',
+            targetTable: 'transaction',
+            targetId: transactionData[0].transaction_id,
+            description: `Recorded ${dbType} transaction of ${amount}`,
+            newValues: transactionData[0]
+        });
 
         // 5. Fetch updated balance (Purely for UI feedback)
         const target_account_id = isMoneyIn ? final_to_account_id : final_from_account_id;

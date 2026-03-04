@@ -6,7 +6,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
@@ -21,6 +22,13 @@ const accountRoutes = require('./routes/accountRoutes');
 const transactionCategoryRoutes = require('./routes/transactionCategoryRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const adminUsersRoutes = require('./routes/adminUsersRoutes');
+const logsRoutes = require('./routes/logsRoutes');
+const moduleRoutes = require('./routes/moduleRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const salaryRoutes = require('./routes/salaryRoutes');
+const employeeTypeRoutes = require('./routes/employeeTypeRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
 const warrantyRoutes = require('./routes/warrantyRoutes');
 
 // Use Routes
@@ -36,6 +44,13 @@ app.use('/api/accounts', accountRoutes);
 app.use('/api/banking/categories', transactionCategoryRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/settings/admin-users', adminUsersRoutes);
+app.use('/api/settings/logs', logsRoutes);
+app.use('/api/settings/modules', moduleRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/salary', salaryRoutes);
+app.use('/api/employee-types', employeeTypeRoutes);
+app.use('/api/expenses', expenseRoutes);
 app.use('/api/warranty', warrantyRoutes);
 
 // Health Check

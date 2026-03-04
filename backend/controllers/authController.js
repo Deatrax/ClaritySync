@@ -57,9 +57,24 @@ const signup = async (req, res) => {
     }
 };
 
+// Helper — fire-and-forget login log (never blocks the response)
+const recordLogin = (email, success, failureReason, ip, userAgent) => {
+    supabase.rpc('proc_record_login', {
+        p_email: email,
+        p_success: success,
+        p_failure_reason: failureReason || null,
+        p_ip_address: ip || null,
+        p_user_agent: userAgent || null
+    }).then(({ error }) => {
+        if (error) console.error('proc_record_login error:', error.message);
+    });
+};
+
 // POST /api/auth/login
 const login = async (req, res) => {
     const { email, password } = req.body;
+    const ip = req.ip || req.headers['x-forwarded-for'] || null;
+    const userAgent = req.headers['user-agent'] || null;
 
     try {
         if (!email || !password) {
@@ -74,10 +89,12 @@ const login = async (req, res) => {
             .single();
 
         if (!user) {
+            recordLogin(email, false, 'USER_NOT_FOUND', ip, userAgent);
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         if (!user.is_active) {
+            recordLogin(email, false, 'ACCOUNT_INACTIVE', ip, userAgent);
             return res.status(401).json({ error: 'User account is inactive' });
         }
 
@@ -85,18 +102,27 @@ const login = async (req, res) => {
         const validPassword = await bcrypt.compare(password, user.password_hash);
 
         if (!validPassword) {
+            recordLogin(email, false, 'INVALID_PASSWORD', ip, userAgent);
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        // Update last_login timestamp
-        await supabase
-            .from('user_account')
-            .update({ last_login: new Date().toISOString() })
-            .eq('user_id', user.user_id);
+        // Record successful login (proc_record_login also updates last_login)
+        recordLogin(email, true, null, ip, userAgent);
+
+        // Fetch the employee's role via explicit query (more reliable than FK join)
+        let role = 'EMPLOYEE';
+        if (user.employee_id) {
+            const { data: empData } = await supabase
+                .from('employee')
+                .select('role')
+                .eq('employee_id', user.employee_id)
+                .single();
+            if (empData?.role) role = empData.role;
+        }
 
         // Generate JWT token
         const token = jwt.sign(
-            { user_id: user.user_id, email: user.email, employee_id: user.employee_id },
+            { user_id: user.user_id, email: user.email, employee_id: user.employee_id, role },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -107,7 +133,8 @@ const login = async (req, res) => {
             user: {
                 user_id: user.user_id,
                 email: user.email,
-                employee_id: user.employee_id
+                employee_id: user.employee_id,
+                role
             }
         });
     } catch (err) {

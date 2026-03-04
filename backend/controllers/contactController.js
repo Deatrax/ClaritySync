@@ -1,4 +1,5 @@
 const supabase = require('../db');
+const { logActivity } = require('../utils/activityLogger');
 
 // GET /api/contacts
 const getAllContacts = async (req, res) => {
@@ -43,6 +44,16 @@ const createContact = async (req, res) => {
         ]).select();
 
         if (error) throw error;
+
+        logActivity(req, {
+            action: 'INSERT',
+            module: 'CONTACTS',
+            targetTable: 'contacts',
+            targetId: data[0].contact_id,
+            description: `Created contact: ${name}`,
+            newValues: data[0]
+        });
+
         res.status(201).json(data[0]);
     } catch (err) {
         console.error(err);
@@ -85,6 +96,15 @@ const updateContact = async (req, res) => {
 
         if (error) throw error;
         if (data.length === 0) return res.status(404).json({ error: 'Contact not found' });
+
+        logActivity(req, {
+            action: 'UPDATE',
+            module: 'CONTACTS',
+            targetTable: 'contacts',
+            targetId: parseInt(id),
+            description: `Updated contact: ${name}`,
+            newValues: data[0]
+        });
 
         res.json(data[0]);
     } catch (err) {

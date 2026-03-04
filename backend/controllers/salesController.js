@@ -1,4 +1,5 @@
 const supabase = require('../db');
+const { logActivity } = require('../utils/activityLogger');
 
 // Helper: get or create employee cash account
 const getOrCreateCashAccount = async (employee_id) => {
@@ -69,9 +70,11 @@ const createSale = async (req, res) => {
         items,
         discount,
         total,
-        payment_method,
-        employee_id
+        payment_method
     } = req.body;
+
+    // Always derive employee from the authenticated user's JWT
+    const employee_id = req.user?.employee_id || null;
 
     try {
         // 1. Resolve target account ID (employee cash drawer or provided account)
@@ -122,6 +125,16 @@ const createSale = async (req, res) => {
         });
 
         if (error) throw error;
+
+        // Log activity
+        logActivity(req, {
+            action: 'CREATE',
+            module: 'SALES',
+            targetTable: 'sales',
+            targetId: data.sale_id,
+            description: `Sold ${items.length} items for a total of ${total}`,
+            newValues: { sale_id: data.sale_id, total, items_count: items.length }
+        });
 
         res.status(201).json({
             sale_id: data.sale_id,
