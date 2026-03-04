@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Printer, Calendar, User, Phone, Mail, FileText, CheckCircle2, Box, Link as LinkIcon, Check } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '@/app/context/AuthContext';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -15,13 +16,19 @@ export default function SaleDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const { token } = useAuth();
 
     useEffect(() => {
         if (!id) return;
         
         const fetchSale = async () => {
+            if (!token) return;
             try {
-                const res = await fetch(`${API_BASE}/sales/${id}`);
+                const res = await fetch(`${API_BASE}/sales/${id}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
                 if (!res.ok) throw new Error('Sale not found');
                 const data = await res.json();
                 setSale(data);
@@ -31,8 +38,10 @@ export default function SaleDetailsPage() {
                 setLoading(false);
             }
         };
-        fetchSale();
-    }, [id]);
+        if (token) {
+            fetchSale();
+        }
+    }, [id, token]);
 
     const handleCopyLink = () => {
         if (!sale?.public_receipt_token) return;
