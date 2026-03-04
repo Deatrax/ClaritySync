@@ -164,6 +164,7 @@ export default function Sidebar() {
         {modules['INVENTORY'] !== false && (
           <NavItem href="/inventory" icon={<Package />} label="Inventory" active={pathname.startsWith('/inventory')} />
         )}
+        <NavItem href="/products" icon={<Package />} label="Products" active={pathname.startsWith('/products')} />
 
         {/* Sales Group */}
         {modules['SALES'] !== false && (
