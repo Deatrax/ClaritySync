@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -33,7 +34,7 @@ function getToken() { return localStorage.getItem('token') || ''; }
 function formatDate(iso: string) { return new Date(iso).toLocaleString(); }
 
 // ── Main Page ────────────────────────────────────────────────
-export default function LoginLogPage() {
+function LoginLogPageContent() {
     const { user, isLoading } = useAuth();
     const router = useRouter();
 
@@ -362,4 +363,13 @@ export default function LoginLogPage() {
             </div>
         </div>
     );
+}
+
+
+export default function LoginLogPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <LoginLogPageContent  />
+    </ProtectedRoute>
+  );
 }

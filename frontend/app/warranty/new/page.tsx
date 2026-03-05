@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -65,7 +66,7 @@ interface WarrantyConfig {
 
 type Step = 1 | 2 | 3 | 4;
 
-export default function NewWarrantyClaimPage() {
+function NewWarrantyClaimPageContent() {
     const router = useRouter();
 
     const [step, setStep] = useState<Step>(1);
@@ -673,4 +674,13 @@ export default function NewWarrantyClaimPage() {
             </div>
         </div>
     );
+}
+
+
+export default function NewWarrantyClaimPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <NewWarrantyClaimPageContent  />
+    </ProtectedRoute>
+  );
 }

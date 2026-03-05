@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
@@ -74,7 +75,7 @@ interface Account {
   current_balance: string;
 }
 
-export default function SalesPage() {
+function SalesPageContent() {
   const [activeTab, setActiveTab] = useState<'new-sale' | 'search'>('new-sale');
   const [groupedProducts, setGroupedProducts] = useState<GroupedProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1105,5 +1106,14 @@ export default function SalesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+
+export default function SalesPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <SalesPageContent  />
+    </ProtectedRoute>
   );
 }

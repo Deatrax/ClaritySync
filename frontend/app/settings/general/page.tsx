@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -25,7 +26,7 @@ const CURRENCIES = [
 
 type Toast = { type: 'success' | 'error'; message: string };
 
-export default function GeneralSettingsPage() {
+function GeneralSettingsPageContent() {
     const { user, isLoading: authLoading } = useAuth();
     const { settings, refetch } = useSettings();
     const router = useRouter();
@@ -382,4 +383,13 @@ function AssetUploader({
             </label>
         </div>
     );
+}
+
+
+export default function GeneralSettingsPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <GeneralSettingsPageContent  />
+    </ProtectedRoute>
+  );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -17,7 +18,7 @@ interface BankAccount {
     current_balance: number;
 }
 
-export default function BankingTransactionPage() {
+function BankingTransactionPageContent() {
     const [accounts, setAccounts] = useState<BankAccount[]>([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
@@ -245,4 +246,13 @@ export default function BankingTransactionPage() {
             </div>
         </div>
     );
+}
+
+
+export default function BankingTransactionPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <BankingTransactionPageContent  />
+    </ProtectedRoute>
+  );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -33,7 +34,7 @@ interface WarrantyConfig {
     is_active: boolean;
 }
 
-export default function ProductsPage() {
+function ProductsPageContent() {
     const [products, setProducts] = useState<Product[]>([]);
     const [warrantyConfigs, setWarrantyConfigs] = useState<Record<number, WarrantyConfig>>({});
     const [loading, setLoading] = useState(true);
@@ -236,4 +237,13 @@ export default function ProductsPage() {
             </div>
         </div>
     );
+}
+
+
+export default function ProductsPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ProductsPageContent  />
+    </ProtectedRoute>
+  );
 }

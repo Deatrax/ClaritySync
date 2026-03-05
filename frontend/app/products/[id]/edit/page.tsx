@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -39,7 +40,7 @@ interface WarrantyConfig {
     is_active: boolean;
 }
 
-export default function ProductEditPage() {
+function ProductEditPageContent() {
     const params = useParams();
     const router = useRouter();
     const productId = parseInt(params.id as string);
@@ -407,4 +408,13 @@ export default function ProductEditPage() {
             </form>
         </div>
     );
+}
+
+
+export default function ProductEditPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ProductEditPageContent  />
+    </ProtectedRoute>
+  );
 }
