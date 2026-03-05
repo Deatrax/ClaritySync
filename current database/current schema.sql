@@ -244,6 +244,7 @@ CREATE TABLE public.sales (
   public_receipt_token character varying UNIQUE,
   sale_date timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   account_id integer,
+  customer_name character varying,
   CONSTRAINT sales_pkey PRIMARY KEY (sale_id),
   CONSTRAINT sales_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(contact_id),
   CONSTRAINT sales_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.banking_account(account_id)
