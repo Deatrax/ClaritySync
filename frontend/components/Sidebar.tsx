@@ -47,11 +47,6 @@ export default function Sidebar() {
   const [isActivityLogOpen, setIsActivityLogOpen] = useState(false);
   const [modules, setModules] = useState<Record<string, boolean>>({});
 
-  // Conditionally hide sidebar for public routes
-  if (pathname.startsWith('/auth') || pathname.startsWith('/receipt')) {
-    return null;
-  }
-
   useEffect(() => {
     const fetchModules = async () => {
       try {
@@ -153,6 +148,11 @@ export default function Sidebar() {
     const d = new Date(ts);
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
+
+  // Conditionally hide sidebar for public routes
+  if (pathname.startsWith('/auth') || pathname.startsWith('/receipt')) {
+    return null;
+  }
 
   return (
     <aside className="w-64 bg-slate-900 text-white border-r border-slate-800 hidden md:flex flex-col h-screen sticky top-0">
