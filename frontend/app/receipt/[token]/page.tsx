@@ -174,7 +174,11 @@ export default function PublicReceiptPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-gray-500 font-medium italic text-lg">Walk-in Customer</div>
+                            <div className="space-y-1">
+                                <div className="text-lg text-gray-900 font-semibold">
+                                    {sale.customer_name || 'Walk-in Customer'}
+                                </div>
+                            </div>
                         )}
                     </div>
 
