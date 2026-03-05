@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -65,7 +66,7 @@ interface Contact {
   email: string | null;
 }
 
-export default function InventoryPage() {
+function InventoryPageContent() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'add-stock'>('inventory');
 
 
@@ -805,5 +806,14 @@ export default function InventoryPage() {
         )}
       </div>
     </div>
+  );
+}
+
+
+export default function InventoryPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <InventoryPageContent  />
+    </ProtectedRoute>
   );
 }

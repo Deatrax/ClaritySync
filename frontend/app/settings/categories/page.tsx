@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -24,7 +25,7 @@ interface Category {
   category_attribute?: CategoryAttribute[];
 }
 
-export default function CategoriesPage() {
+function CategoriesPageContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
@@ -414,5 +415,14 @@ export default function CategoriesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+export default function CategoriesPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <CategoriesPageContent  />
+    </ProtectedRoute>
   );
 }

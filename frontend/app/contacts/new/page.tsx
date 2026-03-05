@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useState } from 'react';
 import { 
@@ -9,7 +10,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export default function NewContactPage() {
+function NewContactPageContent() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -221,5 +222,14 @@ export default function NewContactPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+
+export default function NewContactPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <NewContactPageContent  />
+    </ProtectedRoute>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -15,7 +16,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCurrency } from '@/app/utils/currency';
 
-export default function ContactDetailPage() {
+function ContactDetailPageContent() {
     const params = useParams();
     const id = params.id;
     const [contact, setContact] = useState<any>(null);
@@ -451,4 +452,13 @@ export default function ContactDetailPage() {
 
         </div>
     );
+}
+
+
+export default function ContactDetailPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ContactDetailPageContent  />
+    </ProtectedRoute>
+  );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -13,7 +14,7 @@ import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
 import { useCurrency } from '@/app/utils/currency';
 
-export default function TransactionsListPage() {
+function TransactionsListPageContent() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -207,4 +208,13 @@ export default function TransactionsListPage() {
             </div>
         </div>
     );
+}
+
+
+export default function TransactionsListPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <TransactionsListPageContent  />
+    </ProtectedRoute>
+  );
 }

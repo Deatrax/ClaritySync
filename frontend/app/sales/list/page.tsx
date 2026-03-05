@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, FileText, Receipt, ArrowRight, User, Calendar, CreditCard, ExternalLink } from 'lucide-react';
@@ -22,7 +23,7 @@ interface Sale {
     } | null;
 }
 
-export default function SalesListPage() {
+function SalesListPageContent() {
     const [sales, setSales] = useState<Sale[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -192,4 +193,13 @@ export default function SalesListPage() {
             </div>
         </div>
     );
+}
+
+
+export default function SalesListPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <SalesListPageContent  />
+    </ProtectedRoute>
+  );
 }

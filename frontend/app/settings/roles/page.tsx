@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -50,7 +51,7 @@ interface ModuleConfig {
 const API_BASE = 'http://localhost:5000';
 
 /* ─── Component ──────────────────────────────────────────────────── */
-export default function RolesAndAccessPage() {
+function RolesAndAccessPageContent() {
     const { user, isLoading: authLoading } = useAuth();
     const router = useRouter();
 
@@ -580,4 +581,13 @@ function PermDot({ on }: { on: boolean }) {
     return (
         <span className={`inline-block w-3 h-3 rounded-full ${on ? 'bg-emerald-500 shadow-md shadow-emerald-500/30' : 'bg-slate-700'}`} />
     );
+}
+
+
+export default function RolesAndAccessPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <RolesAndAccessPageContent  />
+    </ProtectedRoute>
+  );
 }
