@@ -339,6 +339,7 @@ export default function Sidebar() {
             )}
           </button>
 
+
           {/* Dropdown panel — pops upward */}
           {isPanelOpen && (
             <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50 w-80 -translate-x-0">
