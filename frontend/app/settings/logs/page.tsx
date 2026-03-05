@@ -28,7 +28,7 @@ interface LoginLogEntry {
 }
 
 // ── Constants ────────────────────────────────────────────────
-const API = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}`;
+const API = ``;
 function getToken() { return localStorage.getItem('token') || ''; }
 function formatDate(iso: string) { return new Date(iso).toLocaleString(); }
 

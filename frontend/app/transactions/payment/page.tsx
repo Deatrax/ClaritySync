@@ -47,9 +47,9 @@ export default function PaymentTransactionPage() {
     const fetchData = async () => {
         try {
             const [accountsRes, categoriesRes, contactsRes] = await Promise.all([
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/accounts`),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/banking/categories`),
-                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/contacts`)
+                fetch(`/api/accounts`),
+                fetch(`/api/banking/categories`),
+                fetch(`/api/contacts`)
             ]);
 
             if (accountsRes.ok) setAccounts(await accountsRes.json());
@@ -83,7 +83,7 @@ export default function PaymentTransactionPage() {
         setMessage(null);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/transactions`, {
+            const res = await fetch(`/api/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

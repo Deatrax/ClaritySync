@@ -31,7 +31,7 @@ interface SystemLogEntry {
 }
 
 // ── Constants ────────────────────────────────────────────────
-const API = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}`;
+const API = ``;
 const MODULES = ['', 'SETTINGS', 'SALES', 'INVENTORY', 'TRANSACTIONS', 'CONTACTS', 'EMPLOYEES', 'SECURITY'];
 
 const ACTION_COLORS: Record<string, string> = {

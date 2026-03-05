@@ -6,7 +6,7 @@ import { ArrowLeft, Printer, Calendar, User, Phone, Mail, FileText, CheckCircle2
 import { format } from 'date-fns';
 import { useAuth } from '@/app/context/AuthContext';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 export default function SaleDetailsPage() {
     const params = useParams();

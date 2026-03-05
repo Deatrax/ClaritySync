@@ -33,7 +33,7 @@ export default function CategoriesPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/banking/categories`);
+      const res = await fetch(`/api/banking/categories`);
       if (res.ok) {
         const data = await res.json();
         setCategories(data);
@@ -64,7 +64,7 @@ export default function CategoriesPage() {
     setMessage(null);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/banking/categories`, {
+      const res = await fetch(`/api/banking/categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -92,7 +92,7 @@ export default function CategoriesPage() {
     if (!confirm('Are you sure you want to delete this category?')) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/banking/categories/${categoryId}`, {
+      const res = await fetch(`/api/banking/categories/${categoryId}`, {
         method: 'DELETE'
       });
 

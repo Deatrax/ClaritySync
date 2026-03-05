@@ -45,7 +45,7 @@ export default function CategoriesPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/categories`);
+      const res = await fetch(`/api/categories`);
       if (res.ok) {
         const data = await res.json();
         setCategories(data);
@@ -124,7 +124,7 @@ export default function CategoriesPage() {
         }))
       };
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/categories`, {
+      const res = await fetch(`/api/categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
