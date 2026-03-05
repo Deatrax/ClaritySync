@@ -38,7 +38,7 @@ function BankingTransactionPageContent() {
 
     const fetchData = async () => {
         try {
-            const accountsRes = await fetch('http://localhost:5000/api/accounts');
+            const accountsRes = await fetch('/api/accounts');
             if (accountsRes.ok) setAccounts(await accountsRes.json());
         } catch (error) {
             console.error('Failed to fetch data', error);
@@ -70,7 +70,7 @@ function BankingTransactionPageContent() {
         setMessage(null);
 
         try {
-            const res = await fetch('http://localhost:5000/api/transactions', {
+            const res = await fetch('/api/transactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

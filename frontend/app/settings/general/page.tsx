@@ -89,7 +89,7 @@ function GeneralSettingsPageContent() {
         setSaving(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/settings/general', {
+            const res = await fetch('/api/settings/general', {
                 method: 'PUT',
                 headers: {
                     Authorization: `Bearer ${token}`,

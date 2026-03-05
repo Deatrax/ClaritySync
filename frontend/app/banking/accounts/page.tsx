@@ -45,7 +45,7 @@ function AccountsPageContent() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/accounts');
+      const res = await fetch('/api/accounts');
       if (res.ok) {
         const data = await res.json();
         setAccounts(data);
@@ -69,7 +69,7 @@ function AccountsPageContent() {
     setMessage(null);
 
     try {
-      const res = await fetch('http://localhost:5000/api/accounts', {
+      const res = await fetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,7 +108,7 @@ function AccountsPageContent() {
     if (!confirm('Are you sure you want to delete this account?')) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/accounts/${accountId}`, {
+      const res = await fetch(`/api/accounts/${accountId}`, {
         method: 'DELETE'
       });
 

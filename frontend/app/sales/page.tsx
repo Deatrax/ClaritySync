@@ -114,7 +114,7 @@ function SalesPageContent() {
   const fetchGroupedInventory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/inventory/grouped', {
+      const res = await fetch('/api/inventory/grouped', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -129,7 +129,7 @@ function SalesPageContent() {
   const fetchCustomers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/contacts', {
+      const res = await fetch('/api/contacts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -144,7 +144,7 @@ function SalesPageContent() {
   const fetchAccounts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/accounts', {
+      const res = await fetch('/api/accounts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -163,7 +163,7 @@ function SalesPageContent() {
     const checkModule = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/settings/modules', {
+        const res = await fetch('/api/settings/modules', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -256,7 +256,7 @@ function SalesPageContent() {
 
   const addSerializedItem = (product: GroupedProduct, item: GroupedInventoryItem) => {
     // Check warranty expiry in background
-    fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+    fetch(`/api/warranty/check/${item.inventory_id}`)
       .then(r => r.json())
       .then(w => {
         if (w?.has_warranty && w?.is_expiring_soon) {
@@ -308,7 +308,7 @@ function SalesPageContent() {
         setMessage({ type: 'error', text: 'Maximum available quantity reached for this batch.' });
       }
     } else {
-      fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+      fetch(`/api/warranty/check/${item.inventory_id}`)
         .then(r => r.json())
         .then(w => {
           if (w?.has_warranty && w?.is_expiring_soon) {
@@ -375,7 +375,7 @@ function SalesPageContent() {
           ));
         } else {
           // Check warranty in background
-          fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+          fetch(`/api/warranty/check/${item.inventory_id}`)
             .then(r => r.json())
             .then(w => {
               if (w?.has_warranty && w?.is_expiring_soon) {
@@ -492,7 +492,7 @@ function SalesPageContent() {
       };
 
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/sales', {
+      const res = await fetch('/api/sales', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

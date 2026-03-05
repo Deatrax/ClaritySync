@@ -53,7 +53,7 @@ function ModuleManagementPageContent() {
     const fetchModules = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/settings/modules', {
+            const res = await fetch('/api/settings/modules', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -84,7 +84,7 @@ function ModuleManagementPageContent() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5000/api/settings/modules/${moduleName}`, {
+            const res = await fetch(`/api/settings/modules/${moduleName}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

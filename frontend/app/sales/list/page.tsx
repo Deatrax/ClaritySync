@@ -6,7 +6,7 @@ import { Search, FileText, Receipt, ArrowRight, User, Calendar, CreditCard, Exte
 import { format } from 'date-fns';
 import { useAuth } from '@/app/context/AuthContext';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 interface Sale {
     sale_id: number;

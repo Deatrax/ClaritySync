@@ -48,9 +48,9 @@ function PaymentTransactionPageContent() {
     const fetchData = async () => {
         try {
             const [accountsRes, categoriesRes, contactsRes] = await Promise.all([
-                fetch('http://localhost:5000/api/accounts'),
-                fetch('http://localhost:5000/api/banking/categories'),
-                fetch('http://localhost:5000/api/contacts')
+                fetch('/api/accounts'),
+                fetch('/api/banking/categories'),
+                fetch('/api/contacts')
             ]);
 
             if (accountsRes.ok) setAccounts(await accountsRes.json());
@@ -84,7 +84,7 @@ function PaymentTransactionPageContent() {
         setMessage(null);
 
         try {
-            const res = await fetch('http://localhost:5000/api/transactions', {
+            const res = await fetch('/api/transactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

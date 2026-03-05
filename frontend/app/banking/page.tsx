@@ -46,7 +46,7 @@ function BankingPageContent() {
     const checkModule = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/settings/modules', {
+        const res = await fetch('/api/settings/modules', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -67,8 +67,8 @@ function BankingPageContent() {
   const fetchData = async () => {
     try {
       const [accountsRes, transactionsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/accounts'),
-        fetch('http://localhost:5000/api/transactions')
+        fetch('/api/accounts'),
+        fetch('/api/transactions')
       ]);
 
       if (accountsRes.ok) {

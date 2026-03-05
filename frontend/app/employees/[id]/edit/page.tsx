@@ -7,7 +7,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { ProtectedRoute } from '../../../components/ProtectedRoute';
 
-const API = 'http://localhost:5000';
+
 
 interface DynamicRole {
     role_id: number;
@@ -116,7 +116,7 @@ function EditEmployeeContent() {
         if (!token) return;
         fetch('/api/employee-types', { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.json()).then(setEmployeeTypes).catch(() => { });
-        fetch(`${API}/api/settings/roles`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch('/api/settings/roles', { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.json())
             .then((data: DynamicRole[]) => setDynamicRoles(data.filter(r => r.is_active)))
             .catch(() => { });

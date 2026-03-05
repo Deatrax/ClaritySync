@@ -32,7 +32,7 @@ interface SystemLogEntry {
 }
 
 // ── Constants ────────────────────────────────────────────────
-const API = 'http://localhost:5000';
+
 const MODULES = ['', 'SETTINGS', 'SALES', 'INVENTORY', 'TRANSACTIONS', 'CONTACTS', 'EMPLOYEES', 'SECURITY'];
 
 const ACTION_COLORS: Record<string, string> = {
@@ -76,7 +76,7 @@ function SystemLogPageContent() {
             if (from) params.set('from', from);
             if (to) params.set('to', to);
 
-            const res = await fetch(`${API}/api/activity-log/system?${params}`, {
+            const res = await fetch(`/api/activity-log/system?${params}`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
             if (!res.ok) throw new Error('Failed to fetch');
@@ -110,7 +110,7 @@ function SystemLogPageContent() {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this log entry?')) return;
         try {
-            const res = await fetch(`${API}/api/settings/logs/system/${id}`, {
+            const res = await fetch(`/api/settings/logs/system/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${getToken()}` }
             });

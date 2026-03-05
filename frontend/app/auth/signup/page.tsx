@@ -31,7 +31,7 @@ export default function SignupPage() {
     // Fetch employees list
     const fetchEmployees = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/employees');
+        const res = await fetch('/api/employees');
         if (res.ok) {
           const data = await res.json();
           setEmployees(data);
@@ -75,7 +75,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/auth/signup', {
+      const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

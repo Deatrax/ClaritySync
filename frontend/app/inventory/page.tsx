@@ -169,7 +169,7 @@ function InventoryPageContent() {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/products', {
+      const res = await fetch('/api/products', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -189,7 +189,7 @@ function InventoryPageContent() {
   const fetchGroupedInventory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/inventory/grouped', {
+      const res = await fetch('/api/inventory/grouped', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -204,7 +204,7 @@ function InventoryPageContent() {
   const fetchAccounts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/accounts', {
+      const res = await fetch('/api/accounts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -222,7 +222,7 @@ function InventoryPageContent() {
   const fetchContacts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/contacts', {
+      const res = await fetch('/api/contacts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -238,7 +238,7 @@ function InventoryPageContent() {
     const checkModule = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/settings/modules', {
+        const res = await fetch('/api/settings/modules', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -294,7 +294,7 @@ function InventoryPageContent() {
     setLoading(true);
     try {
       const validSerials = showSerialNumbers ? serialNumbers.filter(s => s.trim() !== '') : [];
-      const res = await fetch('http://localhost:5000/api/inventory/add', {
+      const res = await fetch('/api/inventory/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

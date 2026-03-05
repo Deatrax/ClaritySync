@@ -29,7 +29,7 @@ interface LoginLogEntry {
 }
 
 // ── Constants ────────────────────────────────────────────────
-const API = 'http://localhost:5000';
+
 function getToken() { return localStorage.getItem('token') || ''; }
 function formatDate(iso: string) { return new Date(iso).toLocaleString(); }
 
@@ -61,7 +61,7 @@ function LoginLogPageContent() {
             if (from) params.set('from', from);
             if (to) params.set('to', to);
 
-            const res = await fetch(`${API}/api/activity-log/login?${params}`, {
+            const res = await fetch(`/api/activity-log/login?${params}`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
             if (!res.ok) throw new Error('Failed to fetch');
@@ -100,7 +100,7 @@ function LoginLogPageContent() {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this login record?')) return;
         try {
-            const res = await fetch(`${API}/api/activity-log/login/${id}`, {
+            const res = await fetch(`/api/activity-log/login/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${getToken()}` }
             });

@@ -48,7 +48,7 @@ interface ModuleConfig {
     is_core: boolean;
 }
 
-const API_BASE = 'http://localhost:5000';
+
 
 /* ─── Component ──────────────────────────────────────────────────── */
 function RolesAndAccessPageContent() {
@@ -83,7 +83,7 @@ function RolesAndAccessPageContent() {
     /* ─── Fetch ─────────────────────────────────────────── */
     const fetchRoles = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/settings/roles`, { headers: headers() });
+            const res = await fetch('/api/settings/roles', { headers: headers() });
             if (res.ok) {
                 const data = await res.json();
                 setRoles(data);
@@ -95,7 +95,7 @@ function RolesAndAccessPageContent() {
 
     const fetchModules = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/settings/modules`, { headers: headers() });
+            const res = await fetch('/api/settings/modules', { headers: headers() });
             if (res.ok) {
                 const data = await res.json();
                 setModules(data.filter((m: ModuleConfig) => m.is_enabled));
@@ -198,8 +198,8 @@ function RolesAndAccessPageContent() {
 
         try {
             const url = editingRole
-                ? `${API_BASE}/api/settings/roles/${editingRole.role_id}`
-                : `${API_BASE}/api/settings/roles`;
+                ? `/api/settings/roles/${editingRole.role_id}`
+                : '/api/settings/roles';
 
             const res = await fetch(url, {
                 method: editingRole ? 'PUT' : 'POST',
@@ -229,7 +229,7 @@ function RolesAndAccessPageContent() {
         setDeleting(true);
 
         try {
-            const res = await fetch(`${API_BASE}/api/settings/roles/${deleteTarget.role_id}`, {
+            const res = await fetch(`/api/settings/roles/${deleteTarget.role_id}`, {
                 method: 'DELETE',
                 headers: headers()
             });
