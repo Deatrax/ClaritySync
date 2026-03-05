@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -59,7 +60,7 @@ function formatDate(iso: string | null) {
 }
 
 // ── Main Page ────────────────────────────────────────────────
-export default function AdminUsersPage() {
+function AdminUsersPageContent() {
     const { user, isLoading } = useAuth();
     const router = useRouter();
 
@@ -460,4 +461,13 @@ export default function AdminUsersPage() {
             )}
         </div>
     );
+}
+
+
+export default function AdminUsersPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <AdminUsersPageContent  />
+    </ProtectedRoute>
+  );
 }

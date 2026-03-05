@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,7 +24,7 @@ interface Category {
   type: 'INCOME' | 'EXPENSE';
 }
 
-export default function NewTransactionPage() {
+function NewTransactionPageContent() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [contacts, setContacts] = useState<any[]>([]); // Added contacts state
@@ -333,5 +334,14 @@ export default function NewTransactionPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+export default function NewTransactionPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <NewTransactionPageContent  />
+    </ProtectedRoute>
   );
 }

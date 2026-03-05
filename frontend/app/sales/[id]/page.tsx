@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 import { useState, useEffect, use } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -8,7 +9,7 @@ import { useAuth } from '@/app/context/AuthContext';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-export default function SaleDetailsPage() {
+function SaleDetailsPageContent() {
     const params = useParams();
     const id = params.id;
     
@@ -245,4 +246,13 @@ export default function SaleDetailsPage() {
             </div>
         </div>
     );
+}
+
+
+export default function SaleDetailsPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <SaleDetailsPageContent  />
+    </ProtectedRoute>
+  );
 }

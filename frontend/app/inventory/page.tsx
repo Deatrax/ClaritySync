@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 
 import React, { useEffect, useState } from 'react';
@@ -57,7 +58,7 @@ interface Account {
   current_balance: string;
 }
 
-export default function InventoryPage() {
+function InventoryPageContent() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'add-stock'>('inventory');
 
   // Read ?tab= URL param on mount so deep-links like /inventory?tab=add-stock work
@@ -689,5 +690,14 @@ export default function InventoryPage() {
         )}
       </div>
     </div>
+  );
+}
+
+
+export default function InventoryPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <InventoryPageContent  />
+    </ProtectedRoute>
   );
 }

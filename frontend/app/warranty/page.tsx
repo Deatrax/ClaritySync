@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -82,7 +83,7 @@ const dispositionLabels: Record<string, string> = {
     SENT_TO_MANUFACTURER: '📦 Sent to Mfr.',
 };
 
-export default function WarrantyPage() {
+function WarrantyPageContent() {
     const [activeTab, setActiveTab] = useState<'claims' | 'holding'>('claims');
     const [claims, setClaims] = useState<Claim[]>([]);
     const [holding, setHolding] = useState<HoldingItem[]>([]);
@@ -411,4 +412,13 @@ export default function WarrantyPage() {
             )}
         </div>
     );
+}
+
+
+export default function WarrantyPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <WarrantyPageContent  />
+    </ProtectedRoute>
+  );
 }

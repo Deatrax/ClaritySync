@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -40,7 +41,7 @@ const ICON_MAP: Record<string, any> = {
     Settings
 };
 
-export default function ModuleManagementPage() {
+function ModuleManagementPageContent() {
     const { user, isLoading: authLoading } = useAuth();
     const router = useRouter();
 
@@ -241,4 +242,13 @@ export default function ModuleManagementPage() {
             </div>
         </div>
     );
+}
+
+
+export default function ModuleManagementPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ModuleManagementPageContent  />
+    </ProtectedRoute>
+  );
 }
