@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -31,7 +32,7 @@ interface Transaction {
   description: string;
 }
 
-export default function BankingPage() {
+function BankingPageContent() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
@@ -45,7 +46,7 @@ export default function BankingPage() {
     const checkModule = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/settings/modules', {
+        const res = await fetch('/api/settings/modules', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -66,8 +67,8 @@ export default function BankingPage() {
   const fetchData = async () => {
     try {
       const [accountsRes, transactionsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/accounts'),
-        fetch('http://localhost:5000/api/transactions')
+        fetch('/api/accounts'),
+        fetch('/api/transactions')
       ]);
 
       if (accountsRes.ok) {
@@ -311,5 +312,14 @@ export default function BankingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+export default function BankingPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <BankingPageContent  />
+    </ProtectedRoute>
   );
 }

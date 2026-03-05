@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -46,7 +47,7 @@ interface EmployeeWithoutAccount {
     role: string;
 }
 
-const API = 'http://localhost:5000';
+
 
 // ── Helpers ─────────────────────────────────────────────────
 function getToken() {
@@ -59,7 +60,7 @@ function formatDate(iso: string | null) {
 }
 
 // ── Main Page ────────────────────────────────────────────────
-export default function AdminUsersPage() {
+function AdminUsersPageContent() {
     const { user, isLoading } = useAuth();
     const router = useRouter();
 
@@ -84,10 +85,10 @@ export default function AdminUsersPage() {
         setLoading(true);
         try {
             const [usersRes, rolesRes] = await Promise.all([
-                fetch(`${API}/api/settings/admin-users`, {
+                fetch('/api/settings/admin-users', {
                     headers: { Authorization: `Bearer ${getToken()}` }
                 }),
-                fetch(`${API}/api/settings/roles`, {
+                fetch('/api/settings/roles', {
                     headers: { Authorization: `Bearer ${getToken()}` }
                 })
             ]);
@@ -128,7 +129,7 @@ export default function AdminUsersPage() {
         if (!selectedRole) return;
         setRoleLoading(prev => ({ ...prev, [employeeId]: true }));
         try {
-            const res = await fetch(`${API}/api/settings/admin-users/${employeeId}/role`, {
+            const res = await fetch(`/api/settings/admin-users/${employeeId}/role`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
                 body: JSON.stringify({ business_role_id: selectedRole.role_id })
@@ -151,7 +152,7 @@ export default function AdminUsersPage() {
     const handleToggle = async (userId: number, currentActive: boolean) => {
         setToggleLoading(prev => ({ ...prev, [userId]: true }));
         try {
-            const res = await fetch(`${API}/api/settings/admin-users/${userId}/toggle`, {
+            const res = await fetch(`/api/settings/admin-users/${userId}/toggle`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
                 body: JSON.stringify({ is_active: !currentActive })
@@ -178,7 +179,7 @@ export default function AdminUsersPage() {
         if (!createModal.employee) return;
         setCreateLoading(true);
         try {
-            const res = await fetch(`${API}/api/settings/admin-users`, {
+            const res = await fetch('/api/settings/admin-users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
                 body: JSON.stringify({
@@ -460,4 +461,13 @@ export default function AdminUsersPage() {
             )}
         </div>
     );
+}
+
+
+export default function AdminUsersPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <AdminUsersPageContent  />
+    </ProtectedRoute>
+  );
 }

@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -40,7 +41,7 @@ const ICON_MAP: Record<string, any> = {
     Settings
 };
 
-export default function ModuleManagementPage() {
+function ModuleManagementPageContent() {
     const { user, isLoading: authLoading } = useAuth();
     const router = useRouter();
 
@@ -52,7 +53,7 @@ export default function ModuleManagementPage() {
     const fetchModules = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/settings/modules', {
+            const res = await fetch('/api/settings/modules', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -83,7 +84,7 @@ export default function ModuleManagementPage() {
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5000/api/settings/modules/${moduleName}`, {
+            const res = await fetch(`/api/settings/modules/${moduleName}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -241,4 +242,13 @@ export default function ModuleManagementPage() {
             </div>
         </div>
     );
+}
+
+
+export default function ModuleManagementPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ModuleManagementPageContent  />
+    </ProtectedRoute>
+  );
 }

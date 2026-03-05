@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -31,7 +32,7 @@ interface SystemLogEntry {
 }
 
 // ── Constants ────────────────────────────────────────────────
-const API = 'http://localhost:5000';
+
 const MODULES = ['', 'SETTINGS', 'SALES', 'INVENTORY', 'TRANSACTIONS', 'CONTACTS', 'EMPLOYEES', 'SECURITY'];
 
 const ACTION_COLORS: Record<string, string> = {
@@ -45,7 +46,7 @@ function getToken() { return localStorage.getItem('token') || ''; }
 function formatDate(iso: string) { return new Date(iso).toLocaleString(); }
 
 // ── Main Page ────────────────────────────────────────────────
-export default function SystemLogPage() {
+function SystemLogPageContent() {
     const { user, isLoading } = useAuth();
     const router = useRouter();
 
@@ -75,7 +76,7 @@ export default function SystemLogPage() {
             if (from) params.set('from', from);
             if (to) params.set('to', to);
 
-            const res = await fetch(`${API}/api/activity-log/system?${params}`, {
+            const res = await fetch(`/api/activity-log/system?${params}`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
             if (!res.ok) throw new Error('Failed to fetch');
@@ -109,7 +110,7 @@ export default function SystemLogPage() {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this log entry?')) return;
         try {
-            const res = await fetch(`${API}/api/settings/logs/system/${id}`, {
+            const res = await fetch(`/api/settings/logs/system/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
@@ -336,4 +337,13 @@ export default function SystemLogPage() {
             </div>
         </div>
     );
+}
+
+
+export default function SystemLogPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <SystemLogPageContent  />
+    </ProtectedRoute>
+  );
 }

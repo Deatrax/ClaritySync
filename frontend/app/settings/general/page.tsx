@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -25,7 +26,7 @@ const CURRENCIES = [
 
 type Toast = { type: 'success' | 'error'; message: string };
 
-export default function GeneralSettingsPage() {
+function GeneralSettingsPageContent() {
     const { user, isLoading: authLoading } = useAuth();
     const { settings, refetch } = useSettings();
     const router = useRouter();
@@ -88,7 +89,7 @@ export default function GeneralSettingsPage() {
         setSaving(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/settings/general', {
+            const res = await fetch('/api/settings/general', {
                 method: 'PUT',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -382,4 +383,13 @@ function AssetUploader({
             </label>
         </div>
     );
+}
+
+
+export default function GeneralSettingsPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <GeneralSettingsPageContent  />
+    </ProtectedRoute>
+  );
 }

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Calendar, CheckCircle2, FileText, Box, Printer, MapPin, Phone, Mail, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 export default function PublicReceiptPage() {
     const params = useParams();
@@ -174,7 +174,11 @@ export default function PublicReceiptPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-gray-500 font-medium italic text-lg">Walk-in Customer</div>
+                            <div className="space-y-1">
+                                <div className="text-lg text-gray-900 font-semibold">
+                                    {sale.customer_name || 'Walk-in Customer'}
+                                </div>
+                            </div>
                         )}
                     </div>
 

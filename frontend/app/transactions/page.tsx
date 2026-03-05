@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -13,7 +14,7 @@ import Link from 'next/link';
 import ModuleDisabled from '@/components/ModuleDisabled';
 import { useCurrency } from '@/app/utils/currency';
 
-export default function TransactionsListPage() {
+function TransactionsListPageContent() {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -25,7 +26,7 @@ export default function TransactionsListPage() {
         const checkModule = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const res = await fetch('http://localhost:5000/api/settings/modules', {
+                const res = await fetch('/api/settings/modules', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
@@ -49,7 +50,7 @@ export default function TransactionsListPage() {
     const fetchTransactions = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/transactions', {
+            const res = await fetch('/api/transactions', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -207,4 +208,13 @@ export default function TransactionsListPage() {
             </div>
         </div>
     );
+}
+
+
+export default function TransactionsListPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <TransactionsListPageContent  />
+    </ProtectedRoute>
+  );
 }

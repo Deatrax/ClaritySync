@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -28,12 +29,12 @@ interface LoginLogEntry {
 }
 
 // ── Constants ────────────────────────────────────────────────
-const API = 'http://localhost:5000';
+
 function getToken() { return localStorage.getItem('token') || ''; }
 function formatDate(iso: string) { return new Date(iso).toLocaleString(); }
 
 // ── Main Page ────────────────────────────────────────────────
-export default function LoginLogPage() {
+function LoginLogPageContent() {
     const { user, isLoading } = useAuth();
     const router = useRouter();
 
@@ -60,7 +61,7 @@ export default function LoginLogPage() {
             if (from) params.set('from', from);
             if (to) params.set('to', to);
 
-            const res = await fetch(`${API}/api/activity-log/login?${params}`, {
+            const res = await fetch(`/api/activity-log/login?${params}`, {
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
             if (!res.ok) throw new Error('Failed to fetch');
@@ -99,7 +100,7 @@ export default function LoginLogPage() {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this login record?')) return;
         try {
-            const res = await fetch(`${API}/api/activity-log/login/${id}`, {
+            const res = await fetch(`/api/activity-log/login/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${getToken()}` }
             });
@@ -362,4 +363,13 @@ export default function LoginLogPage() {
             </div>
         </div>
     );
+}
+
+
+export default function LoginLogPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <LoginLogPageContent  />
+    </ProtectedRoute>
+  );
 }

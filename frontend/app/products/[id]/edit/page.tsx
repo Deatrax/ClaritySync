@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -13,7 +14,7 @@ import {
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 interface Category {
     category_id: number;
@@ -39,7 +40,7 @@ interface WarrantyConfig {
     is_active: boolean;
 }
 
-export default function ProductEditPage() {
+function ProductEditPageContent() {
     const params = useParams();
     const router = useRouter();
     const productId = parseInt(params.id as string);
@@ -407,4 +408,13 @@ export default function ProductEditPage() {
             </form>
         </div>
     );
+}
+
+
+export default function ProductEditPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ProductEditPageContent  />
+    </ProtectedRoute>
+  );
 }

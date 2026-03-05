@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import { Package, ArrowLeft, AlertCircle } from 'lucide-react';
@@ -6,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ProductWithAttributesForm from '@/components/ProductWithAttributesForm';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 interface Category {
     category_id: number;
@@ -14,7 +15,7 @@ interface Category {
     description: string;
 }
 
-export default function NewProductPage() {
+function NewProductPageContent() {
     const router = useRouter();
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
@@ -132,4 +133,13 @@ export default function NewProductPage() {
             </div>
         </div>
     );
+}
+
+
+export default function NewProductPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <NewProductPageContent  />
+    </ProtectedRoute>
+  );
 }

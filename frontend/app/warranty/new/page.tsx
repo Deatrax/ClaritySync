@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -17,7 +18,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 interface WarrantyStatus {
     has_warranty: boolean;
@@ -65,7 +66,7 @@ interface WarrantyConfig {
 
 type Step = 1 | 2 | 3 | 4;
 
-export default function NewWarrantyClaimPage() {
+function NewWarrantyClaimPageContent() {
     const router = useRouter();
 
     const [step, setStep] = useState<Step>(1);
@@ -673,4 +674,13 @@ export default function NewWarrantyClaimPage() {
             </div>
         </div>
     );
+}
+
+
+export default function NewWarrantyClaimPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <NewWarrantyClaimPageContent  />
+    </ProtectedRoute>
+  );
 }

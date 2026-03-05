@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -13,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 interface Product {
     product_id: number;
@@ -33,7 +34,7 @@ interface WarrantyConfig {
     is_active: boolean;
 }
 
-export default function ProductsPage() {
+function ProductsPageContent() {
     const [products, setProducts] = useState<Product[]>([]);
     const [warrantyConfigs, setWarrantyConfigs] = useState<Record<number, WarrantyConfig>>({});
     const [loading, setLoading] = useState(true);
@@ -236,4 +237,13 @@ export default function ProductsPage() {
             </div>
         </div>
     );
+}
+
+
+export default function ProductsPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ProductsPageContent  />
+    </ProtectedRoute>
+  );
 }

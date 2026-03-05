@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,7 +24,7 @@ interface Category {
     type: 'INCOME' | 'EXPENSE';
 }
 
-export default function PaymentTransactionPage() {
+function PaymentTransactionPageContent() {
     const [accounts, setAccounts] = useState<BankAccount[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [contacts, setContacts] = useState<any[]>([]);
@@ -47,9 +48,9 @@ export default function PaymentTransactionPage() {
     const fetchData = async () => {
         try {
             const [accountsRes, categoriesRes, contactsRes] = await Promise.all([
-                fetch('http://localhost:5000/api/accounts'),
-                fetch('http://localhost:5000/api/banking/categories'),
-                fetch('http://localhost:5000/api/contacts')
+                fetch('/api/accounts'),
+                fetch('/api/banking/categories'),
+                fetch('/api/contacts')
             ]);
 
             if (accountsRes.ok) setAccounts(await accountsRes.json());
@@ -83,7 +84,7 @@ export default function PaymentTransactionPage() {
         setMessage(null);
 
         try {
-            const res = await fetch('http://localhost:5000/api/transactions', {
+            const res = await fetch('/api/transactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -277,4 +278,13 @@ export default function PaymentTransactionPage() {
             </div>
         </div>
     );
+}
+
+
+export default function PaymentTransactionPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <PaymentTransactionPageContent  />
+    </ProtectedRoute>
+  );
 }

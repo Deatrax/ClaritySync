@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
@@ -74,7 +75,7 @@ interface Account {
   current_balance: string;
 }
 
-export default function SalesPage() {
+function SalesPageContent() {
   const [activeTab, setActiveTab] = useState<'new-sale' | 'search'>('new-sale');
   const [groupedProducts, setGroupedProducts] = useState<GroupedProduct[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,7 +114,7 @@ export default function SalesPage() {
   const fetchGroupedInventory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/inventory/grouped', {
+      const res = await fetch('/api/inventory/grouped', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -128,7 +129,7 @@ export default function SalesPage() {
   const fetchCustomers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/contacts', {
+      const res = await fetch('/api/contacts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -143,7 +144,7 @@ export default function SalesPage() {
   const fetchAccounts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/accounts', {
+      const res = await fetch('/api/accounts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -162,7 +163,7 @@ export default function SalesPage() {
     const checkModule = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/settings/modules', {
+        const res = await fetch('/api/settings/modules', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -255,7 +256,7 @@ export default function SalesPage() {
 
   const addSerializedItem = (product: GroupedProduct, item: GroupedInventoryItem) => {
     // Check warranty expiry in background
-    fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+    fetch(`/api/warranty/check/${item.inventory_id}`)
       .then(r => r.json())
       .then(w => {
         if (w?.has_warranty && w?.is_expiring_soon) {
@@ -307,7 +308,7 @@ export default function SalesPage() {
         setMessage({ type: 'error', text: 'Maximum available quantity reached for this batch.' });
       }
     } else {
-      fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+      fetch(`/api/warranty/check/${item.inventory_id}`)
         .then(r => r.json())
         .then(w => {
           if (w?.has_warranty && w?.is_expiring_soon) {
@@ -374,7 +375,7 @@ export default function SalesPage() {
           ));
         } else {
           // Check warranty in background
-          fetch(`http://localhost:5000/api/warranty/check/${item.inventory_id}`)
+          fetch(`/api/warranty/check/${item.inventory_id}`)
             .then(r => r.json())
             .then(w => {
               if (w?.has_warranty && w?.is_expiring_soon) {
@@ -491,7 +492,7 @@ export default function SalesPage() {
       };
 
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/sales', {
+      const res = await fetch('/api/sales', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1105,5 +1106,14 @@ export default function SalesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+
+export default function SalesPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <SalesPageContent  />
+    </ProtectedRoute>
   );
 }

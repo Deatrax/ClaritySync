@@ -1,0 +1,143 @@
+diff a/frontend/app/settings/admin-users/page.tsx b/frontend/app/settings/admin-users/page.tsx	(rejected hunks)
+@@ -17,13 +17,20 @@ import {
+ } from 'lucide-react';
+ 
+ // ── Types ────────────────────────────────────────────────────
+-type Role = 'ADMIN' | 'MANAGER' | 'ACCOUNTANT' | 'INVENTORY_STAFF' | 'CASHIER' | 'EMPLOYEE';
++interface DynamicRole {
++    role_id: number;
++    role_key: string;
++    display_name: string;
++    is_built_in: boolean;
++    is_active: boolean;
++}
+ 
+ interface AdminUser {
+     user_id: number;
+     employee_id: number;
+     employee_name: string;
+-    role: Role;
++    role: string;              // role_key e.g. 'ADMIN', 'MANAGER', custom keys
++    role_display_name: string; // human-readable name from business_role
+     designation: string | null;
+     email: string;
+     account_active: boolean;
+@@ -39,27 +46,6 @@ interface EmployeeWithoutAccount {
+     role: string;
+ }
+ 
+-// ── Constants ───────────────────────────────────────────────
+-const ROLES: Role[] = ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'INVENTORY_STAFF', 'CASHIER', 'EMPLOYEE'];
+-
+-const ROLE_COLORS: Record<Role, string> = {
+-    ADMIN: 'bg-purple-100 text-purple-700 border border-purple-200',
+-    MANAGER: 'bg-blue-100 text-blue-700 border border-blue-200',
+-    ACCOUNTANT: 'bg-green-100 text-green-700 border border-green-200',
+-    INVENTORY_STAFF: 'bg-yellow-100 text-yellow-700 border border-yellow-200',
+-    CASHIER: 'bg-orange-100 text-orange-700 border border-orange-200',
+-    EMPLOYEE: 'bg-gray-100 text-gray-600 border border-gray-200',
+-};
+-
+-const ROLE_LABELS: Record<Role, string> = {
+-    ADMIN: 'Admin',
+-    MANAGER: 'Manager',
+-    ACCOUNTANT: 'Accountant',
+-    INVENTORY_STAFF: 'Inventory Staff',
+-    CASHIER: 'Cashier',
+-    EMPLOYEE: 'Employee',
+-};
+-
+ const API = 'http://localhost:5000';
+ 
+ // ── Helpers ─────────────────────────────────────────────────
+@@ -79,6 +65,7 @@ export default function AdminUsersPage() {
+ 
+     const [users, setUsers] = useState<AdminUser[]>([]);
+     const [employeesWithoutAccounts, setEmployeesWithoutAccounts] = useState<EmployeeWithoutAccount[]>([]);
++    const [dynamicRoles, setDynamicRoles] = useState<DynamicRole[]>([]);
+     const [loading, setLoading] = useState(true);
+     const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+ 
+@@ -96,13 +83,22 @@ export default function AdminUsersPage() {
+     const fetchData = async () => {
+         setLoading(true);
+         try {
+-            const res = await fetch(`${API}/api/settings/admin-users`, {
+-                headers: { Authorization: `Bearer ${getToken()}` }
+-            });
+-            if (!res.ok) throw new Error('Failed to fetch');
+-            const data = await res.json();
++            const [usersRes, rolesRes] = await Promise.all([
++                fetch(`${API}/api/settings/admin-users`, {
++                    headers: { Authorization: `Bearer ${getToken()}` }
++                }),
++                fetch(`${API}/api/settings/roles`, {
++                    headers: { Authorization: `Bearer ${getToken()}` }
++                })
++            ]);
++            if (!usersRes.ok) throw new Error('Failed to fetch users');
++            const data = await usersRes.json();
+             setUsers(data.users || []);
+             setEmployeesWithoutAccounts(data.employeesWithoutAccounts || []);
++            if (rolesRes.ok) {
++                const rolesData = await rolesRes.json();
++                setDynamicRoles(rolesData.filter((r: DynamicRole) => r.is_active));
++            }
+         } catch {
+             showToast('error', 'Failed to load admin users');
+         } finally {
+@@ -127,17 +123,22 @@ export default function AdminUsersPage() {
+     };
+ 
+     // ── Role change ───────────────────────────────────────────
+-    const handleRoleChange = async (employeeId: number, newRole: Role) => {
++    const handleRoleChange = async (employeeId: number, newRoleKey: string) => {
++        const selectedRole = dynamicRoles.find(r => r.role_key === newRoleKey);
++        if (!selectedRole) return;
+         setRoleLoading(prev => ({ ...prev, [employeeId]: true }));
+         try {
+             const res = await fetch(`${API}/api/settings/admin-users/${employeeId}/role`, {
+                 method: 'PUT',
+                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+-                body: JSON.stringify({ new_role: newRole })
++                body: JSON.stringify({ business_role_id: selectedRole.role_id })
+             });
+             const data = await res.json();
+             if (!res.ok) throw new Error(data.error || 'Role change failed');
+-            setUsers(prev => prev.map(u => u.employee_id === employeeId ? { ...u, role: newRole } : u));
++            setUsers(prev => prev.map(u => u.employee_id === employeeId
++                ? { ...u, role: newRoleKey, role_display_name: selectedRole.display_name }
++                : u
++            ));
+             showToast('success', 'Role updated successfully');
+         } catch (err: any) {
+             showToast('error', err.message || 'Failed to update role');
+@@ -295,20 +296,20 @@ export default function AdminUsersPage() {
+                                             {/* Role dropdown */}
+                                             <td className="px-6 py-4">
+                                                 {user.role === 'ADMIN' ? (
+-                                                    <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${ROLE_COLORS.ADMIN}`}>
+-                                                        Admin
++                                                    <span className="px-3 py-1.5 rounded-lg text-xs font-semibold border bg-purple-100 text-purple-700 border-purple-200">
++                                                        {user.role_display_name || 'Admin'}
+                                                     </span>
+                                                 ) : (
+                                                     <div className="relative inline-block">
+                                                         <select
+                                                             value={user.role}
+-                                                            onChange={e => handleRoleChange(user.employee_id, e.target.value as Role)}
+-                                                            disabled={roleLoading[user.employee_id]}
+-                                                            className={`appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${ROLE_COLORS[user.role]
+-                                                                } ${roleLoading[user.employee_id] ? 'opacity-50 cursor-wait' : ''}`}
++                                                            onChange={e => handleRoleChange(user.employee_id, e.target.value)}
++                                                            disabled={roleLoading[user.employee_id] || dynamicRoles.length === 0}
++                                                            className={`appearance-none pl-3 pr-8 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-blue-50 text-blue-700 border-blue-200 ${roleLoading[user.employee_id] ? 'opacity-50 cursor-wait' : ''
++                                                                }`}
+                                                         >
+-                                                            {ROLES.filter(r => r !== 'ADMIN').map(r => (
+-                                                                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
++                                                            {dynamicRoles.map(r => (
++                                                                <option key={r.role_key} value={r.role_key}>{r.display_name}</option>
+                                                             ))}
+                                                         </select>
+                                                         <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />

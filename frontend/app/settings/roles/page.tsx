@@ -1,4 +1,5 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -47,10 +48,10 @@ interface ModuleConfig {
     is_core: boolean;
 }
 
-const API_BASE = 'http://localhost:5000';
+
 
 /* ─── Component ──────────────────────────────────────────────────── */
-export default function RolesAndAccessPage() {
+function RolesAndAccessPageContent() {
     const { user, isLoading: authLoading } = useAuth();
     const router = useRouter();
 
@@ -82,7 +83,7 @@ export default function RolesAndAccessPage() {
     /* ─── Fetch ─────────────────────────────────────────── */
     const fetchRoles = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/settings/roles`, { headers: headers() });
+            const res = await fetch('/api/settings/roles', { headers: headers() });
             if (res.ok) {
                 const data = await res.json();
                 setRoles(data);
@@ -94,7 +95,7 @@ export default function RolesAndAccessPage() {
 
     const fetchModules = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/settings/modules`, { headers: headers() });
+            const res = await fetch('/api/settings/modules', { headers: headers() });
             if (res.ok) {
                 const data = await res.json();
                 setModules(data.filter((m: ModuleConfig) => m.is_enabled));
@@ -197,8 +198,8 @@ export default function RolesAndAccessPage() {
 
         try {
             const url = editingRole
-                ? `${API_BASE}/api/settings/roles/${editingRole.role_id}`
-                : `${API_BASE}/api/settings/roles`;
+                ? `/api/settings/roles/${editingRole.role_id}`
+                : '/api/settings/roles';
 
             const res = await fetch(url, {
                 method: editingRole ? 'PUT' : 'POST',
@@ -228,7 +229,7 @@ export default function RolesAndAccessPage() {
         setDeleting(true);
 
         try {
-            const res = await fetch(`${API_BASE}/api/settings/roles/${deleteTarget.role_id}`, {
+            const res = await fetch(`/api/settings/roles/${deleteTarget.role_id}`, {
                 method: 'DELETE',
                 headers: headers()
             });
@@ -580,4 +581,13 @@ function PermDot({ on }: { on: boolean }) {
     return (
         <span className={`inline-block w-3 h-3 rounded-full ${on ? 'bg-emerald-500 shadow-md shadow-emerald-500/30' : 'bg-slate-700'}`} />
     );
+}
+
+
+export default function RolesAndAccessPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <RolesAndAccessPageContent  />
+    </ProtectedRoute>
+  );
 }

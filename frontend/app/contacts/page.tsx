@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -25,7 +26,7 @@ interface Contact {
   account_balance: number;
 }
 
-export default function ContactsPage() {
+function ContactsPageContent() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,7 +39,7 @@ export default function ContactsPage() {
     const checkModule = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/settings/modules', {
+        const res = await fetch('/api/settings/modules', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -222,5 +223,14 @@ export default function ContactsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+export default function ContactsPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <ContactsPageContent  />
+    </ProtectedRoute>
   );
 }

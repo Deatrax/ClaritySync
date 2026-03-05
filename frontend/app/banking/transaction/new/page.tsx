@@ -1,4 +1,5 @@
 "use client";
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,7 +24,7 @@ interface Category {
   type: 'INCOME' | 'EXPENSE';
 }
 
-export default function NewTransactionPage() {
+function NewTransactionPageContent() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [contacts, setContacts] = useState<any[]>([]); // Added contacts state
@@ -46,9 +47,9 @@ export default function NewTransactionPage() {
   const fetchData = async () => {
     try {
       const [accountsRes, categoriesRes, contactsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/accounts'),
-        fetch('http://localhost:5000/api/banking/categories'),
-        fetch('http://localhost:5000/api/contacts')
+        fetch('/api/accounts'),
+        fetch('/api/banking/categories'),
+        fetch('/api/contacts')
       ]);
 
       if (accountsRes.ok) {
@@ -92,7 +93,7 @@ export default function NewTransactionPage() {
     setMessage(null);
 
     try {
-      const res = await fetch('http://localhost:5000/api/transactions', {
+      const res = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -333,5 +334,14 @@ export default function NewTransactionPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+export default function NewTransactionPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <NewTransactionPageContent  />
+    </ProtectedRoute>
   );
 }

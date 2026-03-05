@@ -1,11 +1,12 @@
 'use client';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, FileText, Receipt, ArrowRight, User, Calendar, CreditCard, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/app/context/AuthContext';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 interface Sale {
     sale_id: number;
@@ -22,7 +23,7 @@ interface Sale {
     } | null;
 }
 
-export default function SalesListPage() {
+function SalesListPageContent() {
     const [sales, setSales] = useState<Sale[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -192,4 +193,13 @@ export default function SalesListPage() {
             </div>
         </div>
     );
+}
+
+
+export default function SalesListPage(props: any) {
+  return (
+    <ProtectedRoute>
+      <SalesListPageContent  />
+    </ProtectedRoute>
+  );
 }
