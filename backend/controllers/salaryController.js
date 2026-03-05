@@ -108,14 +108,16 @@ const deleteComponent = async (req, res) => {
 async function getOrCreateSalaryRecord(employee_id, month) {
     const monthDate = month + '-01';
 
-    // Fetch employee including their type
+    // Fetch employee including their type and role
     const { data: emp } = await supabase
         .from('employee')
-        .select('role, name, designation, basic_salary, employee_type_id')
+        .select('name, designation, basic_salary, employee_type_id, business_role:business_role_id(role_key)')
         .eq('employee_id', employee_id)
         .single();
 
     if (!emp) return null;
+
+    const roleKey = emp.business_role?.role_key;
 
     // Get or create salary header
     let { data: salaryRecord } = await supabase
@@ -141,7 +143,7 @@ async function getOrCreateSalaryRecord(employee_id, month) {
     const { data: components } = await supabase
         .from('salary_component_type')
         .select('*')
-        .or(`applicable_role.eq.${emp.role},applicable_role.is.null`)
+        .or(`applicable_role.eq.${roleKey},applicable_role.is.null`)
         .order('sort_order', { ascending: true });
 
     // Get existing component values (only present for non-new records or partially-filled ones)
