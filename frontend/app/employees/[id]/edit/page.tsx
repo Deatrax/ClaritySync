@@ -7,7 +7,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { ProtectedRoute } from '../../../components/ProtectedRoute';
 
-const API = 'http://localhost:5000';
+const API = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}`;
 
 interface DynamicRole {
     role_id: number;

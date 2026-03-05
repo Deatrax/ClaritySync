@@ -44,7 +44,7 @@ export default function AccountsPage() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/accounts');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/accounts`);
       if (res.ok) {
         const data = await res.json();
         setAccounts(data);
@@ -68,7 +68,7 @@ export default function AccountsPage() {
     setMessage(null);
 
     try {
-      const res = await fetch('http://localhost:5000/api/accounts', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -107,7 +107,7 @@ export default function AccountsPage() {
     if (!confirm('Are you sure you want to delete this account?')) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/accounts/${accountId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/accounts/${accountId}`, {
         method: 'DELETE'
       });
 

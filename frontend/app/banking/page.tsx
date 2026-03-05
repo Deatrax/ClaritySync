@@ -45,7 +45,7 @@ export default function BankingPage() {
     const checkModule = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/settings/modules', {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/settings/modules`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -66,8 +66,8 @@ export default function BankingPage() {
   const fetchData = async () => {
     try {
       const [accountsRes, transactionsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/accounts'),
-        fetch('http://localhost:5000/api/transactions')
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/accounts`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/transactions`)
       ]);
 
       if (accountsRes.ok) {

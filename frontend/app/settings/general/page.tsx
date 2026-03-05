@@ -88,7 +88,7 @@ export default function GeneralSettingsPage() {
         setSaving(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/settings/general', {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/settings/general`, {
                 method: 'PUT',
                 headers: {
                     Authorization: `Bearer ${token}`,

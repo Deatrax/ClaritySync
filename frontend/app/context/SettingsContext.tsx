@@ -62,7 +62,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        fetch('http://localhost:5000/api/settings/general', {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/settings/general`, {
             headers: { Authorization: `Bearer ${token}` },
         })
             .then((r) => (r.ok ? r.json() : null))

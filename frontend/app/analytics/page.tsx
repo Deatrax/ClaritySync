@@ -87,7 +87,7 @@ const TABS = [
     { id: "warranty", label: "Warranty Claims", icon: <ShieldCheck size={16} /> },
 ];
 
-const API = "http://localhost:5000/api/analytics";
+const API = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/analytics`;
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 function AnalyticsContent() {
