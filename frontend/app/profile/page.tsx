@@ -7,6 +7,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 
 type Tab = 'info' | 'salary' | 'payments';
 
+const API = 'http://localhost:5000';
 const PAYMENT_METHODS = ['Cash', 'Credit Card', 'Debit Card', 'Mobile Banking', 'Bank Transfer', 'Other'];
 
 interface ExpenseRequest {
@@ -120,7 +121,7 @@ function SalaryTab({ profile, token }: { profile: EmployeeProfile; token: string
         if (!selectedMonth) return;
         setLoading(true); setError(null);
         try {
-            const res = await fetch(`/api/salary/me?month=${selectedMonth}`, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetch(`${API}/api/salary/me?month=${selectedMonth}`, { headers: { Authorization: `Bearer ${token}` } });
             if (!res.ok) throw new Error('Failed to load salary');
             setRecord(await res.json());
         } catch { setError('Could not load salary data for this month.'); }
@@ -231,7 +232,7 @@ function PaymentHistoryTab({ token }: { token: string }) {
 
     const load = useCallback(async () => {
         try {
-            const res = await fetch('/api/expenses/me', { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetch(`${API}/api/expenses/me`, { headers: { Authorization: `Bearer ${token}` } });
             setRequests(await res.json());
         } catch { /* silent */ }
         finally { setLoading(false); }
@@ -250,7 +251,7 @@ function PaymentHistoryTab({ token }: { token: string }) {
         if (!reason.trim()) { setFormError('Reason is required'); return; }
         setSubmitting(true); setFormError(null);
         try {
-            const res = await fetch('/api/expenses', {
+            const res = await fetch(`${API}/api/expenses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ amount: parseFloat(amount), reason: reason.trim(), payment_method: paymentMethod || null, invoice_url: invoiceUrl }),
@@ -385,7 +386,7 @@ function ProfileContent() {
         const load = async () => {
             if (!token) return; setLoading(true);
             try {
-                const res = await fetch('/api/employees/me', { headers: { Authorization: `Bearer ${token}` } });
+                const res = await fetch(`${API}/api/employees/me`, { headers: { Authorization: `Bearer ${token}` } });
                 if (res.status === 400) { setNoEmployee(true); return; }
                 if (!res.ok) throw new Error();
                 const data = await res.json();
@@ -402,7 +403,7 @@ function ProfileContent() {
         e.preventDefault(); if (!token) return;
         setSaving(true); setError(null);
         try {
-            const res = await fetch('/api/employees/me', {
+            const res = await fetch(`${API}/api/employees/me`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ designation, phone, address, photo_url: photoUrl, nid_photo_url: nidPhotoUrl }),
