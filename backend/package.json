@@ -10,7 +10,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "Custom",
   "type": "commonjs",
   "dependencies": {
     "@supabase/supabase-js": "^2.93.2",

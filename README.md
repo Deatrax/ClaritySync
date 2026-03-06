@@ -100,4 +100,7 @@ The backend is structured into various modules. Some of the core endpoint prefix
 
 ## License
 
-This project is licensed under the ISC License.
+This project is licensed under a custom Non-Commercial, Copyleft License. 
+
+- **Non-Commercial Use Only:** This software may not be used, distributed, or modified for commercial purposes without explicit, written permission from the original author.
+- **Copyleft / Open Source Requirement:** If you modify, distribute, or create derivative works using this software, you must release your resulting work publicly under these identical terms.
